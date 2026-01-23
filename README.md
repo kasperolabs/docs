@@ -1,4 +1,4 @@
-# Kaspero Labs
+# <img src="./kaspero-logo.png" alt="" width="40"> Kaspero Labs
 
 Bringing Kaspa to everyday life.
 
