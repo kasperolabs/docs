@@ -12,7 +12,7 @@ Accept Kaspa payments on your website in minutes. Drop-in button, multiple walle
 
 **Status:** ✅ Live
 
-- [KasperoPay Documentation](./kasperopay/docs/kasperopay/integration_v1_1.md)
+- [KasperoPay Documentation](./kasperopay/integration_v1_1.md)
 - [Demo](https://kaspa-store.com/demo)
 - [Merchant Portal](https://kaspa-store.com/merchant)
 
@@ -24,7 +24,7 @@ Complete e-commerce platform for buying and selling with Kaspa. Dual-currency pr
 
 Browse products and explore the interface. Checkout is disabled while we finalize testing.
 
-- [kaspa-store Documentation](./kaspa-store/docs/kaspa-store-docs.md)
+- [kaspa-store Documentation](./kaspa-store/README.md)
 - [Demo Store](https://kaspa-store.com)
 
 ### Keystone
@@ -41,8 +41,8 @@ Keystone is currently being reviewed and is not yet available for public use.
 
 | I want to... | Go here |
 |--------------|---------|
-| Accept payments on my website | [KasperoPay Docs](./kasperopay/docs/KasperoPay_Integration_V1_1.md) |
-| Explore a Kaspa-powered store | [kaspa-store Docs](./kaspa-store/docs/kaspa-store-docs.md) |
+| Accept payments on my website | [KasperoPay Docs](./kasperopay/integration_v1_1.md) |
+| Explore a Kaspa-powered store | [kaspa-store Docs](./kaspa-store/README.md) |
 | See a payment demo | [Demo Page](https://kaspa-store.com/demo) |
 
 ---
