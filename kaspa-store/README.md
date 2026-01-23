@@ -3,7 +3,7 @@
 A complete e-commerce platform for buying and selling with Kaspa (KAS). Currently in demo mode.
 
 <p align="center">
-  <img src="./images/logo.png" alt="Kaspa Store" width="200">
+  <img src="./logo.png" alt="Kaspa Store" width="200">
 </p>
 
 ---
