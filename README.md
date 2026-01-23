@@ -12,7 +12,7 @@ Accept Kaspa payments on your website in minutes. Drop-in button, multiple walle
 
 **Status:** ✅ Live
 
-- [KasperoPay Documentation](./kasperopay/docs/kasperopay_integration_v1_1.md)
+- [KasperoPay Documentation](./kasperopay/docs/kasperopay/integration_v1_1.md)
 - [Demo](https://kaspa-store.com/demo)
 - [Merchant Portal](https://kaspa-store.com/merchant)
 
