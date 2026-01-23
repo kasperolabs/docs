@@ -18,22 +18,10 @@ Accept Kaspa payments on your website in minutes. Drop-in button, multiple walle
 
 ### kaspa-store
 
-Complete e-commerce platform for buying and selling with Kaspa. Dual-currency pricing, real-time shipping, integrated support.
-
-**Status:** 🧪 Demo
-
-Browse products and explore the interface. Checkout is disabled while we finalize testing.
+A complete e-commerce platform for buying and selling with Kaspa. Currently in demo mode — browse products and explore the interface while we finalize testing.
 
 - [kaspa-store Documentation](./kaspa-store/README.md)
 - [Demo Store](https://kaspa-store.com)
-
-### Keystone
-
-Kaspa wallet with a familiar banking interface.
-
-**Status:** 🔄 Under Review
-
-Keystone is currently being reviewed and is not yet available for public use.
 
 ---
 
@@ -41,7 +29,7 @@ Keystone is currently being reviewed and is not yet available for public use.
 
 | I want to... | Go here |
 |--------------|---------|
-| Accept payments on my website | [KasperoPay Docs](./kasperopay/integration_v1_1.md) |
+| Accept payments on my website | [KasperoPay Docs](./kasperopay/integration-v1.1.md) |
 | Explore a Kaspa-powered store | [kaspa-store Docs](./kaspa-store/README.md) |
 | See a payment demo | [Demo Page](https://kaspa-store.com/demo) |
 
@@ -51,10 +39,10 @@ Keystone is currently being reviewed and is not yet available for public use.
 
 ```
 kaspero-labs/
-├── kasperopay/          # Payment widget and merchant tools
-│   └── docs/
-├── kaspa-store/         # E-commerce platform
-│   └── docs/
+├── kasperopay/
+│   └── integration-v1.1.md
+├── kaspa-store/
+│   └── README.md
 └── README.md
 ```
 
