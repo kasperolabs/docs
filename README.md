@@ -1,25 +1,39 @@
-# Kaspero Labs Documentation
+# Kaspero Labs
 
-Bringing Kaspa to everyday life. 
+Bringing Kaspa to everyday life.
 
 ---
 
 ## Products
 
-### [Keystone](./Keystone/README.md)
-
-Kaspa wallet with a familiar banking interface. Checking accounts, savings accounts, send money to an email address.
-
-- [Philosophy & Overview](./Keystone/README.md)
-- [Pay Screen](./Keystone/pay-screen.md) - Send to anyone
-- [Receive Screen](./Keystone/receive-screen.md) - QR codes and addresses
-- [Transfer Screen](./Keystone/transfer-screen.md) - Move between accounts
-- [Invite System](./Keystone/invites.md) - Send to non-users
-- [OAuth Integration](./Keystone/oauth.md) - Let apps request payments
-
-### [KasperoPay](./KasperoPay/integration-v1.1.md)
+### KasperoPay
 
 Accept Kaspa payments on your website in minutes. Drop-in button, multiple wallet support, secure session tokens.
+
+**Status:** ✅ Live
+
+- [KasperoPay Documentation](./kasperopay/docs/KasperoPay_Integration_V1_1.md)
+- [Demo](https://kaspa-store.com/demo)
+- [Merchant Portal](https://kaspa-store.com/merchant)
+
+### kaspa-store
+
+Complete e-commerce platform for buying and selling with Kaspa. Dual-currency pricing, real-time shipping, integrated support.
+
+**Status:** 🧪 Demo
+
+Browse products and explore the interface. Checkout is disabled while we finalize testing.
+
+- [kaspa-store Documentation](./kaspa-store/docs/kaspa-store-docs.md)
+- [Demo Store](https://kaspa-store.com)
+
+### Keystone
+
+Kaspa wallet with a familiar banking interface.
+
+**Status:** 🔄 Under Review
+
+Keystone is currently being reviewed and is not yet available for public use.
 
 ---
 
@@ -27,20 +41,31 @@ Accept Kaspa payments on your website in minutes. Drop-in button, multiple walle
 
 | I want to... | Go here |
 |--------------|---------|
-| Accept payments on my website | [KasperoPay Docs](./KasperoPay/integration-v1.1.md) |
-| Understand how Keystone works | [Keystone Overview](./Keystone/README.md) |
-| Integrate my app with Keystone | [OAuth Integration](./Keystone/oauth.md) |
-| Send money to someone without Keystone | [Invite System](./Keystone/invites.md) |
+| Accept payments on my website | [KasperoPay Docs](./kasperopay/docs/KasperoPay_Integration_V1_1.md) |
+| Explore a Kaspa-powered store | [kaspa-store Docs](./kaspa-store/docs/kaspa-store-docs.md) |
+| See a payment demo | [Demo Page](https://kaspa-store.com/demo) |
+
+---
+
+## Repository Structure
+
+```
+kaspero-labs/
+├── kasperopay/          # Payment widget and merchant tools
+│   └── docs/
+├── kaspa-store/         # E-commerce platform
+│   └── docs/
+└── README.md
+```
 
 ---
 
 ## Support
 
-- Email: kasperolabs@gmail.com
-- Twitter: [@KasperoLabs](https://x.com/KasperoLabs)
-- GitHub: [github.com/kasperolabs](https://github.com/kasperolabs)
+- **Email:** kasperolabs@gmail.com
+- **Twitter:** [@KasperoLabs](https://x.com/KasperoLabs)
+- **GitHub:** [github.com/kasperolabs](https://github.com/kasperolabs)
 
 ---
 
 *Built with 💚 for the Kaspa ecosystem*
-
