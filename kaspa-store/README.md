@@ -1,7 +1,8 @@
 # Kaspa Store Documentation
 
 A complete e-commerce platform for buying and selling with Kaspa (KAS).
-** Currently in Demo mode
+
+**Currently in Demo mode
 
 ---
 
