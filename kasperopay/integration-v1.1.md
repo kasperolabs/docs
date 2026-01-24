@@ -1,6 +1,8 @@
-# KasperoPay Documentation
+# KasperoPay Documentation v1.2
 
 Accept Kaspa payments on your website in minutes.
+
+> **Using AI to build your site?** See our [No-Code Integration Guide](kasperopay-nocode-guide.md) with copy-paste prompts for Replit, Cursor, and other AI coding tools.
 
 ---
 
@@ -11,13 +13,16 @@ Accept Kaspa payments on your website in minutes.
 3. [Button Themes](#button-themes)
 4. [Security Model](#security-model)
 5. [JavaScript API](#javascript-api)
-6. [Wallet Connection (Authentication)](#wallet-connection-authentication)
-7. [Advanced: Cart Integration](#advanced-cart-integration)
-8. [Public API Endpoints](#public-api-endpoints)
-9. [Verifying Payments](#verifying-payments)
-10. [Webhooks (Coming Soon)](#webhooks)
-11. [FAQ](#faq)
-12. [Changelog](#changelog)
+6. [Payment Options](#payment-options)
+7. [Wallet Connection (Authentication)](#wallet-connection-authentication)
+8. [Keystone OAuth Integration](#keystone-oauth-integration)
+9. [Advanced: Cart Integration](#advanced-cart-integration)
+10. [Public API Endpoints](#public-api-endpoints)
+11. [Verifying Payments](#verifying-payments)
+12. [Webhooks (Coming Soon)](#webhooks)
+13. [Troubleshooting](#troubleshooting)
+14. [FAQ](#faq)
+15. [Changelog](#changelog)
 
 ---
 
@@ -29,9 +34,10 @@ Sign up at [kaspa-store.com/merchant](https://kaspa-store.com/merchant) to get y
 
 ### 2. Add the Widget
 
-Paste this code where you want the payment button to appear:
+Paste this code in your HTML. **Important:** Place the div in your root layout, outside any conditionals or dynamically loaded components.
 
 ```html
+<!-- Place in root layout, NOT inside conditional components -->
 <div id="kaspero-pay-button"
      data-merchant="kpm_YOUR_MERCHANT_ID"
      data-amount="10"
@@ -41,6 +47,31 @@ Paste this code where you want the payment button to appear:
 ```
 
 That's it! You now have a working Kaspa payment button.
+
+### 3. Hidden Mode (For Programmatic Use)
+
+If you want to trigger payments via JavaScript without showing a button:
+
+```html
+<!-- Hidden container - still required for initialization -->
+<div id="kaspero-pay-button" 
+     data-merchant="kpm_YOUR_MERCHANT_ID" 
+     style="display:none">
+</div>
+<script src="https://kaspa-store.com/pay/widget.js"></script>
+
+<script>
+// Trigger payment from your own button/logic
+document.getElementById('my-checkout-btn').onclick = function() {
+    window.KasperoPay.pay({
+        amount: 25.5,
+        item: 'My Product'
+    });
+};
+</script>
+```
+
+> ⚠️ **Common Issue:** "Invalid merchant ID" error usually means the `#kaspero-pay-button` div doesn't exist or loaded after the script. The div must be in the DOM before the widget initializes.
 
 ---
 
@@ -151,8 +182,7 @@ window.KasperoPay.setAmount(25.5, 'Premium Plan');
 // Trigger payment programmatically
 window.KasperoPay.pay({
     amount: 25.5,
-    item: 'Premium Plan',
-    showReceipt: true  // Optional: set to false to hide widget receipt
+    item: 'Premium Plan'
 });
 
 // Change theme dynamically
@@ -164,14 +194,6 @@ window.KasperoPay.disconnect();
 // Get connected user info
 const user = window.KasperoPay.getUser();
 ```
-
-### Payment Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `amount` | number | required | Amount in KAS |
-| `item` | string | 'Payment' | Item description |
-| `showReceipt` | boolean | true | Show widget receipt after payment |
 
 ### Payment Callback
 
@@ -190,21 +212,95 @@ window.KasperoPay.onPayment(function(payment) {
 });
 ```
 
-### Suppressing the Receipt Modal
+### Cancel Callback
 
-If your site has its own order confirmation page, you can hide the widget's receipt:
+Listen for cancelled/closed payments:
+
+```javascript
+window.KasperoPay.onCancel(function() {
+    console.log('Payment cancelled by user');
+    // User closed the modal without completing payment
+});
+```
+
+---
+
+## Payment Options
+
+The `pay()` method accepts several options to control the payment flow:
+
+```javascript
+window.KasperoPay.pay({
+    // Required
+    amount: 25.5,
+    
+    // Optional
+    item: 'Product Name',
+    style: 'dark',
+    
+    // UI Control
+    showWalletSelector: true,   // Show/hide wallet selection screen
+    showConfirmation: true,     // Show/hide confirmation screen before payment
+    showReceipt: true,          // Show/hide receipt after payment
+    showNotifications: true,    // Show/hide toast notifications
+    
+    // Callbacks
+    onPayment: function(result) { },
+    onCancel: function() { }
+});
+```
+
+### Payment Options Reference
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `amount` | number | required | Amount in KAS |
+| `item` | string | 'Payment' | Item description |
+| `style` | string | 'institutional' | Modal theme |
+| `showWalletSelector` | boolean | auto | Force show/hide wallet selector. Auto = show if not connected |
+| `showConfirmation` | boolean | true | Show confirmation screen before sending |
+| `showReceipt` | boolean | true | Show receipt after payment completes |
+| `showNotifications` | boolean | true | Show toast notifications (success, error, etc.) |
+
+### Custom Error Handling
+
+If you want to handle all UI feedback yourself, disable notifications and use callbacks:
 
 ```javascript
 window.KasperoPay.pay({
     amount: 25.5,
-    item: 'Order #12345',
-    showReceipt: false  // Widget closes after payment, your callback handles the rest
+    item: 'Product',
+    showNotifications: false,  // No toasts
+    showReceipt: false,        // No receipt modal
+    onPayment: function(result) {
+        if (result.success) {
+            // Show your own success UI
+            showMySuccessMessage(result.txid);
+        } else {
+            // Show your own error UI
+            showMyErrorMessage(result.error);
+        }
+    }
 });
+```
 
-window.KasperoPay.onPayment(function(payment) {
-    // Show your own confirmation page
-    window.location.href = '/order-complete/' + payment.payment_id;
-});
+### Skip Wallet Selector (Connected Users)
+
+For returning users who are already connected:
+
+```javascript
+// Check if connected, skip straight to payment
+if (window.KasperoPay.isConnected()) {
+    window.KasperoPay.pay({
+        amount: 25.5,
+        showWalletSelector: false  // Skip wallet selection
+    });
+} else {
+    window.KasperoPay.pay({
+        amount: 25.5
+        // Will show wallet selector
+    });
+}
 ```
 
 ---
@@ -221,7 +317,7 @@ window.KasperoPay.connect({
     onConnect: function(user) {
         console.log('Connected!', user);
         // user.address - Kaspa address
-        // user.walletType - 'kasware', 'kastle', or 'keystone'
+        // user.walletType - 'kasware', 'kastle', 'keystone', or 'kasanova'
         // user.publicKey - Public key (if available)
         // user.email - Email (Keystone only)
     },
@@ -236,7 +332,7 @@ window.KasperoPay.connect({
 | Property | Type | Description |
 |----------|------|-------------|
 | `address` | string | Kaspa address (e.g., `kaspa:qz...`) |
-| `walletType` | string | `'kasware'`, `'kastle'`, or `'keystone'` |
+| `walletType` | string | `'kasware'`, `'kastle'`, `'keystone'`, or `'kasanova'` |
 | `publicKey` | string | Public key (Kasware/Kastle only) |
 | `email` | string | User's email (Keystone only) |
 
@@ -260,6 +356,7 @@ The widget automatically detects if a wallet is already connected:
 1. Checks stored session (Keystone returning users)
 2. Checks Kastle extension
 3. Checks Kasware extension
+4. Checks Kasanova mobile wallet (if available)
 
 If already connected, `connect()` returns immediately with user data via the callback.
 
@@ -308,110 +405,128 @@ document.getElementById('logout-btn').onclick = function() {
 
 ---
 
+## Keystone OAuth Integration
+
+Keystone is an OAuth-based wallet that works on any browser, including mobile. When users log in via Keystone, they get redirected back to your site with authentication parameters.
+
+### How It Works
+
+1. User clicks Keystone in the wallet selector
+2. User logs in on Keystone's secure site
+3. User is redirected back to your site with `?keystone_connected=true&token=xxx`
+4. Your app catches those params and completes the login
+
+### Handling the Keystone Callback
+
+Add this to your app to catch returning Keystone users:
+
+**React/Next.js:**
+
+```tsx
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const keystoneConnected = params.get('keystone_connected');
+  const token = params.get('token');
+
+  if (keystoneConnected === 'true' && token) {
+    // Store the token
+    localStorage.setItem('auth_token', token);
+    
+    // Fetch user profile
+    fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(userData => {
+      setUser(userData);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    });
+  }
+}, []);
+```
+
+**Backend endpoint to decode the token:**
+
+```javascript
+const jwt = require('jsonwebtoken');
+
+app.get('/api/auth/me', (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  // Decode without verification - token comes from trusted KasperoPay OAuth
+  const decoded = jwt.decode(token);
+  
+  if (!decoded) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+
+  // decoded contains: { userId, email, isKeystone, isAdmin }
+  res.json({
+    id: decoded.userId,
+    email: decoded.email,
+    authType: 'keystone'
+  });
+});
+```
+
+> **Note:** Use `jwt.decode()`, not `jwt.verify()`. The token is already validated by KasperoPay's OAuth flow. You don't need the JWT secret.
+
+### Token Contents
+
+The Keystone JWT contains:
+
+```javascript
+{
+  userId: 123,              // KasperoPay user ID
+  email: "user@example.com",
+  isKeystone: true,
+  isAdmin: false
+}
+```
+
+---
+
 ## Advanced: Cart Integration
 
-For shopping carts with multiple items or dynamic totals:
+### Dynamic Cart Checkout
 
-### Example: E-commerce Cart
+```javascript
+let cartTotal = 0;
+let cartItems = [];
 
-```html
-<div id="kaspero-pay-button"
-     data-merchant="kpm_abc123xy"
-     data-amount="0"
-     data-item="Cart">
-</div>
-<script src="https://kaspa-store.com/pay/widget.js"></script>
-
-<script>
-// Your cart logic
-const cart = {
-    items: [
-        { name: 'T-Shirt', price: 15, qty: 2 },
-        { name: 'Mug', price: 8, qty: 1 }
-    ],
-    
-    getTotal: function() {
-        return this.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    },
-    
-    getDescription: function() {
-        return this.items.map(i => `${i.qty}x ${i.name}`).join(', ');
-    }
-};
-
-// Update payment button when cart changes
-function updatePayButton() {
-    const total = cart.getTotal();
-    const description = cart.getDescription();
-    
-    // Convert USD to KAS (you'd fetch current rate)
-    const kasRate = 0.10; // $0.10 per KAS
-    const kasAmount = total / kasRate;
-    
-    window.KasperoPay.setAmount(kasAmount.toFixed(2), description);
+function updateCart() {
+    cartTotal = cartItems.reduce((sum, item) => sum + item.price, 0);
+    window.KasperoPay.setAmount(cartTotal, `Cart (${cartItems.length} items)`);
 }
 
-// Handle successful payment
+function addToCart(item) {
+    cartItems.push(item);
+    updateCart();
+}
+
 window.KasperoPay.onPayment(function(payment) {
-    // Send order to your backend
     fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             payment_id: payment.payment_id,
-            txid: payment.txid,
-            items: cart.items,
-            total_kas: payment.amount_kas
+            items: cartItems,
+            txid: payment.txid
         })
     })
-    .then(response => response.json())
-    .then(order => {
-        window.location.href = '/order-confirmation/' + order.id;
+    .then(() => {
+        cartItems = [];
+        window.location.href = '/order-complete/' + payment.payment_id;
     });
 });
-
-// Initialize
-updatePayButton();
-</script>
 ```
 
-### Example: Donation with Custom Amount
-
-```html
-<input type="number" id="donation-amount" placeholder="Enter KAS amount" min="1">
-<button onclick="donate()">Donate</button>
-
-<div id="kaspero-pay-button"
-     data-merchant="kpm_abc123xy"
-     data-amount="0"
-     data-item="Donation"
-     style="display: none;">
-</div>
-<script src="https://kaspa-store.com/pay/widget.js"></script>
-
-<script>
-function donate() {
-    const amount = document.getElementById('donation-amount').value;
-    
-    if (!amount || amount < 1) {
-        alert('Please enter a valid amount');
-        return;
-    }
-    
-    // Trigger payment with custom amount
-    window.KasperoPay.pay({
-        amount: parseFloat(amount),
-        item: 'Donation - Thank you!'
-    });
-}
-
-window.KasperoPay.onPayment(function(payment) {
-    alert('Thank you for your donation of ' + payment.amount_kas + ' KAS!');
-});
-</script>
-```
-
-### Example: Subscription Tiers
+### Subscription Tiers
 
 ```html
 <div class="pricing-tiers">
@@ -422,10 +537,6 @@ window.KasperoPay.onPayment(function(payment) {
     <div class="tier" onclick="selectTier('pro', 25)">
         <h3>Pro</h3>
         <p>25 KAS/month</p>
-    </div>
-    <div class="tier" onclick="selectTier('enterprise', 100)">
-        <h3>Enterprise</h3>
-        <p>100 KAS/month</p>
     </div>
 </div>
 
@@ -441,17 +552,12 @@ let selectedTier = 'basic';
 
 function selectTier(tier, amount) {
     selectedTier = tier;
-    
-    // Highlight selected tier (your CSS)
     document.querySelectorAll('.tier').forEach(el => el.classList.remove('selected'));
     event.target.closest('.tier').classList.add('selected');
-    
-    // Update payment button
     window.KasperoPay.setAmount(amount, tier.charAt(0).toUpperCase() + tier.slice(1) + ' Plan');
 }
 
 window.KasperoPay.onPayment(function(payment) {
-    // Create subscription on your backend
     fetch('/api/subscriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -508,29 +614,7 @@ GET https://kaspa-store.com/pay/receipt/{payment_id}
 
 Only available for completed payments.
 
-**Response:**
-```json
-{
-    "receipt": {
-        "payment_id": "pay_abc123...",
-        "store_name": "Your Store",
-        "store_logo": "https://...",
-        "item_description": "Premium Plan",
-        "amount_kas": 25.5,
-        "amount_usd": 2.55,
-        "kas_usd_rate": 0.10,
-        "txid": "abc123...",
-        "to_address": "kaspa:qr...",
-        "from_address": "kaspa:qp...",
-        "confirmed_at": "2025-01-19T12:00:00Z",
-        "created_at": "2025-01-19T11:55:00Z"
-    }
-}
-```
-
 ### Verify Payment (Server-Side)
-
-Verify a payment was received on the blockchain:
 
 ```
 POST https://kaspa-store.com/pay/verify
@@ -542,89 +626,53 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
-```json
-{
-    "success": true,
-    "verified": true,
-    "message": "Payment verified"
-}
-```
-
-This endpoint:
-1. Fetches the transaction from Kaspa blockchain API
-2. Verifies the transaction is confirmed
-3. Verifies the correct amount was sent to the merchant address
-4. Updates the payment status to `completed`
-
 ---
 
 ## Verifying Payments
 
 ### Client-Side (JavaScript)
 
-Use the callback to get notified immediately:
-
 ```javascript
 window.KasperoPay.onPayment(function(payment) {
     // This fires when payment is confirmed
-    // You can trust this for low-value items
     unlockContent(payment.payment_id);
 });
 ```
 
 ### Server-Side (Recommended for High-Value)
 
-For important transactions, verify on your backend:
-
 ```javascript
-// Node.js example
 app.post('/verify-payment', async (req, res) => {
     const { payment_id } = req.body;
     
-    // Call KasperoPay API
     const response = await fetch(
         `https://kaspa-store.com/pay/status/${payment_id}`
     );
     const data = await response.json();
     
-    if (data.status === 'completed') {
-        // Verify amount matches what you expected
-        if (data.amount_kas >= expectedAmount) {
-            // Payment verified! Fulfill order
-            await fulfillOrder(payment_id, data);
-            res.json({ success: true });
-        } else {
-            res.json({ error: 'Amount mismatch' });
-        }
+    if (data.status === 'completed' && data.amount_kas >= expectedAmount) {
+        await fulfillOrder(payment_id, data);
+        res.json({ success: true });
     } else {
-        res.json({ error: 'Payment not completed', status: data.status });
+        res.json({ error: 'Payment not verified' });
     }
 });
 ```
 
 ### Direct Blockchain Verification
 
-For maximum trust, verify directly on Kaspa blockchain:
-
 ```javascript
-// Verify transaction exists and has correct output
-const txid = payment.txid;
-const expectedAddress = 'kaspa:qr...'; // Your receive address
-const expectedAmount = 25.5; // KAS
-
 const response = await fetch(`https://api.kaspa.org/transactions/${txid}`);
 const tx = await response.json();
 
 if (tx.is_accepted) {
-    // Find output to your address
     const output = tx.outputs.find(o => 
         o.script_public_key_address === expectedAddress
     );
     
     if (output) {
-        const receivedKAS = output.amount / 1e8; // Convert sompi to KAS
-        if (receivedKAS >= expectedAmount * 0.99) { // 1% tolerance
+        const receivedKAS = output.amount / 1e8;
+        if (receivedKAS >= expectedAmount * 0.99) {
             console.log('Payment verified on blockchain!');
         }
     }
@@ -642,7 +690,56 @@ Currently, payment notifications are available via:
 2. Email notifications (configurable in dashboard)
 3. Polling the `/pay/status/{payment_id}` endpoint
 
-If you need webhooks for your integration, please contact us.
+---
+
+## Troubleshooting
+
+### "Invalid merchant ID" Error
+
+**Cause:** The `#kaspero-pay-button` div doesn't exist when the widget script loads.
+
+**Fix:** 
+- Place the div in your root HTML layout, not inside conditional components
+- Make sure it's not dynamically rendered after page load
+- For React/Vue: use a hidden div outside your main component tree
+
+```html
+<!-- In your root index.html or layout -->
+<div id="kaspero-pay-button" data-merchant="kpm_xxx" style="display:none"></div>
+```
+
+### Keystone Redirects to Wrong Site
+
+**Cause:** Widget was sending pathname only, not full URL.
+
+**Fix:** Update to v1.2 of the widget. Already fixed.
+
+### Widget Doesn't Load in Dev Preview
+
+**Cause:** Some IDE preview modes (Replit, CodeSandbox) run in iframes that block certain features.
+
+**Fix:** Test on your deployed URL, not in IDE preview modes.
+
+### Wallet Connection Lost After Redirect
+
+**Cause:** Keystone OAuth returns to your site but your app doesn't catch the callback params.
+
+**Fix:** Implement the Keystone callback handler. See [Keystone OAuth Integration](#keystone-oauth-integration).
+
+### Payment Succeeds But Callback Doesn't Fire
+
+**Cause:** `onPayment` callback was registered after the payment completed.
+
+**Fix:** Register your callback before calling `pay()`:
+
+```javascript
+// CORRECT ORDER
+window.KasperoPay.onPayment(function(result) {
+    // Handle payment
+});
+
+window.KasperoPay.pay({ amount: 25 });
+```
 
 ---
 
@@ -650,53 +747,53 @@ If you need webhooks for your integration, please contact us.
 
 ### What wallets are supported?
 
-- **Kasware** - Browser extension
-- **Kastle** - Browser extension
-- **Keystone** - Pay from your Keystone account (browser-based, any device)
-- **Mobile** - Opens any wallet app that supports the kaspa: URI scheme
+- **Kasware** - Browser extension (desktop)
+- **Kastle** - Browser extension (desktop)
+- **Keystone** - OAuth-based wallet (all browsers, including mobile)
+- **Kasanova** - Mobile wallet app
 - **Any wallet** - Via QR code (manual payment)
 
 ### What fees does KasperoPay charge?
 
-Default fee is 1.5% per transaction. You can adjust this (0-10%) in your merchant settings. Fees accumulate and can be paid when they reach the network minimum.
+Default fee is 1.5% per transaction. You can adjust this (0-10%) in your merchant settings.
 
 ### How fast are payments confirmed?
 
 Kaspa confirms transactions in about 1 second. The widget waits for blockchain confirmation before showing success.
 
-### Can I use this for recurring payments?
+### Can I customize the wallet options shown?
 
-Not currently. Each payment is a one-time transaction. For subscriptions, you'd need to prompt the user to pay each period.
-
-### Is there a minimum payment amount?
-
-The Kaspa network has a minimum transaction of ~0.2 KAS due to dust limits. We recommend minimums of at least 1 KAS for practical use.
-
-### Does the widget auto-detect connected wallets?
-
-Yes! As of v1.1, the widget automatically detects if the user has an active wallet session (Kasware, Kastle, or Keystone) and uses it for payments without showing the wallet selector.
-
-### Can users pay with a different wallet than they're logged in with?
-
-Yes. Users can click "Disconnect" in the payment modal to choose a different wallet, while remaining logged in with their original wallet on your site.
+Coming in v1.3. You'll be able to enable/disable specific wallets.
 
 ### How do I get support?
 
 - Email: kasperolabs@gmail.com
-- x.com: [Twitter](https://x.com/KasperoLabs)
-- GitHub Issues: [Report bugs](https://github.com/kasperolabs)
+- Twitter: [@KasperoLabs](https://x.com/KasperoLabs)
+- GitHub: [Report bugs](https://github.com/kasperolabs)
 
 ---
 
 ## Changelog
 
+**v1.2** (January 2025)
+- **NEW:** `showWalletSelector` option to force show/hide wallet selection
+- **NEW:** `showConfirmation` option to show/hide confirmation screen
+- **NEW:** `showNotifications` option to suppress toast messages
+- **NEW:** `onCancel` callback for cancelled payments
+- **NEW:** Kasanova mobile wallet support
+- **NEW:** Troubleshooting section
+- **NEW:** No-Code Integration Guide for AI-assisted developers
+- **FIX:** Keystone redirect now uses full URL (was using pathname only)
+- **FIX:** Race condition when div loads after script
+- **DOCS:** Added Keystone OAuth integration guide
+- **DOCS:** Added JWT decode example (not verify)
+
 **v1.1** (January 2025)
-- **NEW:** `connect()` API for wallet-based authentication
-- **NEW:** `isConnected()` helper method
-- **NEW:** `showReceipt` option to suppress widget receipt modal
-- **NEW:** Auto-detect connected wallets (skip selector if already connected)
-- **NEW:** `forceSelect` option to override auto-detection
-- **FIX:** Dark mode QR icon visibility
+- `connect()` API for wallet-based authentication
+- `isConnected()` helper method
+- `showReceipt` option to suppress widget receipt modal
+- Auto-detect connected wallets
+- `forceSelect` option to override auto-detection
 
 **v1.0** (January 2025)
 - Initial release
@@ -708,4 +805,3 @@ Yes. Users can click "Disconnect" in the payment modal to choose a different wal
 ---
 
 *Built with 💚 for the Kaspa ecosystem*
-
