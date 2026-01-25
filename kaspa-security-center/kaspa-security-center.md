@@ -38,7 +38,7 @@ The Kaspa Security Center is an open-source platform for reporting and tracking 
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/kaspero-labs/kaspa-security-center.git
+git clone https://github.com/kasperolabs/kaspa-security-center.git
 cd kaspa-security-center
 npm install
 ```
@@ -435,4 +435,4 @@ Resolved cases can be published with sanitized information to warn the community
 
 ---
 
-*Built with 💚 for the Kaspa ecosystem by [Kaspero Labs](https://github.com/kaspero-labs)*
+*Built with 💚 for the Kaspa ecosystem by [Kaspero Labs](https://github.com/kasperolabs)*
