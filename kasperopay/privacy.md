@@ -151,7 +151,8 @@ Email: kasperolabs@gmail.com
 
 This doc gets updated when things change. Check commit history if you want to see what changed when.
 
-January 2025: First version.
+January 2026: First version.
+
 
 ---
 
