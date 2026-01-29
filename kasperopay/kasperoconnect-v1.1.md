@@ -1,8 +1,7 @@
 # KasperoConnect Documentation v1.1
 
 Add wallet-based authentication to your website. Let users sign in with their Kaspa wallet or social accounts.
-
-> **Need payments instead?** See [KasperoPay Documentation](kasperopay-v1.3.md) for accepting Kaspa payments.
+> **Using AI to build your site?** See our [No-Code Integration Guide](kasperoconnect-nocode-guide.md) with copy-paste prompts for Replit, Cursor, and other AI coding tools.
 
 ---
 
@@ -533,7 +532,7 @@ If the same person connects via wallet and later via Google, they'll be separate
 
 ### What data do you store?
 
-KasperoConnect stores wallet addresses and email (for OAuth users). Private keys never leave the user's wallet. See [Privacy & How Auth Works](privacy.md) for full details.
+KasperoConnect stores minimal data: wallet addresses and email (for OAuth users). We don't store private keys or passwords.
 
 ---
 
