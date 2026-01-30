@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaspa Pay Modal - Demo</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #0f0f1a;
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+        h1 { 
+            color: #49eacb; 
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #94a3b8;
+            margin-bottom: 32px;
+        }
+        .demo-section {
+            background: #1a1a2e;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid #2d2d44;
+        }
+        h2 { 
+            margin-top: 0; 
+            color: #fff;
+            font-size: 18px;
+        }
+        p { color: #94a3b8; }
+        code {
+            background: #2d2d44;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #49eacb;
+        }
+        pre {
+            background: #0f0f1a;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid #2d2d44;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+        .highlight { color: #49eacb; }
+        .string { color: #fbbf24; }
+        .comment { color: #64748b; }
+        
+        .demo-button-container {
+            margin: 20px 0;
+        }
+        
+        a { color: #49eacb; }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .feature {
+            background: #0f0f1a;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #2d2d44;
+        }
+        .feature-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .feature-title {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .feature-desc {
+            font-size: 14px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <h1>🪙 Kaspa Pay Modal</h1>
+    <p class="subtitle">Open source payment modal for Kaspa. No backend required.</p>
+    
+    <div class="demo-section">
+        <h2>Live Demo</h2>
+        <p>Click to try the payment modal. No real payment required to test the UI.</p>
+        <div class="demo-button-container">
+            <div id="kaspa-pay" 
+                 data-address="kaspa:qz58h3dartglypzmgfkhwcnke5a5v8sa0avg7fh9jzqftgtk3ud7ccztkk47m"
+                 data-amount="5"
+                 data-item="Buy me a coffee"
+                 data-theme="dark">
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Features</h2>
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🔌</div>
+                <div class="feature-title">No Backend</div>
+                <div class="feature-desc">Payments go directly to your address</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🦊</div>
+                <div class="feature-title">Wallet Support</div>
+                <div class="feature-desc">Kasware & Kastle extensions</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📱</div>
+                <div class="feature-title">Mobile Ready</div>
+                <div class="feature-desc">QR codes & deep links</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <div class="feature-title">Lightweight</div>
+                <div class="feature-desc">Single file, no dependencies</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Quick Start</h2>
+        <p>Add these two things to your HTML:</p>
+        <pre><code><span class="comment">&lt;!-- 1. Add the container with your config --&gt;</span>
+&lt;div <span class="highlight">id</span>=<span class="string">"kaspa-pay"</span> 
+     <span class="highlight">data-address</span>=<span class="string">"kaspa:your-address-here"</span>
+     <span class="highlight">data-amount</span>=<span class="string">"10"</span>
+     <span class="highlight">data-item</span>=<span class="string">"Coffee"</span>
+     <span class="highlight">data-theme</span>=<span class="string">"dark"</span>&gt;
+&lt;/div&gt;
+
+<span class="comment">&lt;!-- 2. Include the script --&gt;</span>
+&lt;script <span class="highlight">src</span>=<span class="string">"kaspa-pay-modal.js"</span>&gt;&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="demo-section">
+        <h2>Configuration Options</h2>
+        <pre><code><span class="highlight">data-address</span>  <span class="comment">// Required - Your kaspa: address</span>
+<span class="highlight">data-amount</span>   <span class="comment">// Amount in KAS</span>
+<span class="highlight">data-item</span>     <span class="comment">// Item/product name</span>
+<span class="highlight">data-theme</span>    <span class="comment">// "light" or "dark"</span></code></pre>
+    </div>
+
+    <div class="demo-section">
+        <h2>JavaScript API</h2>
+        <p>For dynamic payments, use the JavaScript API:</p>
+        <pre><code>KaspaPay.<span class="highlight">open</span>({
+    <span class="highlight">address</span>: <span class="string">'kaspa:qr...'</span>,
+    <span class="highlight">amount</span>: 5,
+    <span class="highlight">item</span>: <span class="string">'Donation'</span>,
+    <span class="highlight">theme</span>: <span class="string">'dark'</span>,
+    <span class="highlight">onSuccess</span>: <span class="highlight">function</span>(result) {
+        console.<span class="highlight">log</span>(<span class="string">'Paid!'</span>, result.txid);
+    }
+});</code></pre>
+        <p style="margin-top: 16px;">
+            <button onclick="openDynamic()" style="background:#49eacb;color:#1a1a2e;border:none;padding:10px 20px;border-radius:6px;font-weight:600;cursor:pointer;">
+                Try JavaScript API
+            </button>
+        </p>
+    </div>
+
+    <div class="demo-section">
+        <h2>Use Cases</h2>
+        <p><strong>Donation buttons</strong> - Add a tip jar to your blog or content</p>
+        <p><strong>Simple e-commerce</strong> - Sell products without a payment processor</p>
+        <p><strong>Per-user payments</strong> - Each page can have a different receiving address</p>
+    </div>
+
+    <div class="demo-section">
+        <h2>Get the Code</h2>
+        <p>
+            Download <a href="kaspa-pay-modal.js">kaspa-pay-modal.js</a> and add it to your site.
+            <br><br>
+            Read the full <a href="KASPA-PAY-MODAL.md">integration guide</a> for more examples.
+        </p>
+    </div>
+
+    <script src="kaspa-pay-modal.js"></script>
+    <script>
+        function openDynamic() {
+            KaspaPay.open({
+                address: 'kaspa:qz58h3dartglypzmgfkhwcnke5a5v8sa0avg7fh9jzqftgtk3ud7ccztkk47m',
+                amount: 1,
+                item: 'Dynamic Payment Test',
+                theme: 'dark',
+                onSuccess: function(result) {
+                    alert('Payment successful!\nTransaction: ' + result.txid);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
