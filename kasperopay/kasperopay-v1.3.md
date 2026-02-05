@@ -1,4 +1,4 @@
-# KasperoPay Documentation v1.3.1
+# KasperoPay Documentation v1.3
 
 Accept Kaspa payments on your website in minutes.
 
@@ -15,14 +15,13 @@ Accept Kaspa payments on your website in minutes.
 5. [Security Model](#security-model)
 6. [JavaScript API](#javascript-api)
 7. [Payment Options](#payment-options)
-8. [Itemized Receipts](#itemized-receipts)
-9. [Advanced: Cart Integration](#advanced-cart-integration)
-10. [Public API Endpoints](#public-api-endpoints)
-11. [Verifying Payments](#verifying-payments)
-12. [Webhooks (Coming Soon)](#webhooks)
-13. [Troubleshooting](#troubleshooting)
-14. [FAQ](#faq)
-15. [Changelog](#changelog)
+8. [Advanced: Cart Integration](#advanced-cart-integration)
+9. [Public API Endpoints](#public-api-endpoints)
+10. [Verifying Payments](#verifying-payments)
+11. [Webhooks (Coming Soon)](#webhooks)
+12. [Troubleshooting](#troubleshooting)
+13. [FAQ](#faq)
+14. [Changelog](#changelog)
 
 ---
 
@@ -254,7 +253,6 @@ window.KasperoPay.onPayment(function(payment) {
     // payment.payment_id - Unique payment ID
     // payment.txid - Kaspa transaction ID
     // payment.amount_kas - Amount paid
-    // payment.items - Itemized list (if provided)
     // payment.status - 'completed'
     
     // Redirect to thank you page, unlock content, etc.
@@ -285,11 +283,7 @@ window.KasperoPay.pay({
     amount: 25.5,
     
     // Optional
-    item: 'Product Name',          // Simple description (fallback)
-    items: [                        // Itemized list for receipts
-        { name: 'Widget', quantity: 2, price_kas: 10, price_usd: 0.32 },
-        { name: 'Gadget', quantity: 1, price_kas: 5.5, price_usd: 0.18 }
-    ],
+    item: 'Product Name',
     style: 'dark',
     
     // UI Control
@@ -309,8 +303,7 @@ window.KasperoPay.pay({
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `amount` | number | required | Amount in KAS |
-| `item` | string | 'Payment' | Item description (fallback if no items) |
-| `items` | array | null | Itemized list for receipts (see below) |
+| `item` | string | 'Payment' | Item description |
 | `style` | string | 'institutional' | Modal theme |
 | `showWalletSelector` | boolean | auto | Force show/hide wallet selector. Auto = show if not connected |
 | `showConfirmation` | boolean | true | Show confirmation screen before sending |
@@ -360,125 +353,39 @@ if (window.KasperoPay.isConnected()) {
 
 ---
 
-## Itemized Receipts
-
-**New in v1.3.1:** Pass an `items` array to get itemized receipts in the modal and PDF.
-
-### Basic Usage
-
-```javascript
-window.KasperoPay.pay({
-    amount: 25.5,
-    item: 'Order #1234',  // Fallback description
-    items: [
-        {
-            name: 'Blue T-Shirt',
-            quantity: 2,
-            price_kas: 10,
-            price_usd: 0.32    // Optional
-        },
-        {
-            name: 'Coffee Mug',
-            quantity: 1,
-            price_kas: 5.5,
-            price_usd: 0.18    // Optional
-        }
-    ],
-    onPayment: function(payment) {
-        console.log('Items purchased:', payment.items);
-    }
-});
-```
-
-### Item Object Properties
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `name` | string | Yes | Item name (max 100 characters) |
-| `quantity` | number | Yes | Quantity purchased |
-| `price_kas` | number | Yes | Price per item in KAS |
-| `price_usd` | number | No | Price per item in USD (for display) |
-| `image_url` | string | No | Item image URL |
-
-### How It Works
-
-- If `items` is provided, the receipt modal shows an itemized list with quantities and prices
-- The PDF receipt includes a table with all items
-- If `items` is empty or not provided, falls back to the `item` string
-- Maximum 50 items per payment
-- The `amount` must still be provided and should equal the sum of all items
-
-### Receipt Display
-
-When items are provided, the receipt shows:
-
-```
-Items
-─────────────────────────────────
-Blue T-Shirt  ×2         20.00 KAS
-                         ($0.64)
-Coffee Mug               5.50 KAS
-                         ($0.18)
-─────────────────────────────────
-```
-
----
-
 ## Advanced: Cart Integration
 
 ### Dynamic Cart Checkout
 
 ```javascript
-let cart = [];
+let cartTotal = 0;
+let cartItems = [];
 
-function addToCart(product) {
-    const existing = cart.find(item => item.id === product.id);
-    if (existing) {
-        existing.quantity++;
-    } else {
-        cart.push({
-            id: product.id,
-            name: product.name,
-            quantity: 1,
-            price_kas: product.price_kas,
-            price_usd: product.price_usd
-        });
-    }
-    updateCartDisplay();
+function updateCart() {
+    cartTotal = cartItems.reduce((sum, item) => sum + item.price, 0);
+    window.KasperoPay.setAmount(cartTotal, `Cart (${cartItems.length} items)`);
 }
 
-function checkout() {
-    const total = cart.reduce((sum, item) => 
-        sum + (item.price_kas * item.quantity), 0
-    );
-    
-    window.KasperoPay.pay({
-        amount: total,
-        item: `Order (${cart.length} items)`,
-        items: cart.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            price_kas: item.price_kas,
-            price_usd: item.price_usd
-        })),
-        onPayment: function(payment) {
-            // payment.items contains the itemized list
-            fetch('/api/orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    payment_id: payment.payment_id,
-                    items: payment.items,
-                    txid: payment.txid
-                })
-            })
-            .then(() => {
-                cart = [];
-                window.location.href = '/order-complete/' + payment.payment_id;
-            });
-        }
+function addToCart(item) {
+    cartItems.push(item);
+    updateCart();
+}
+
+window.KasperoPay.onPayment(function(payment) {
+    fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            payment_id: payment.payment_id,
+            items: cartItems,
+            txid: payment.txid
+        })
+    })
+    .then(() => {
+        cartItems = [];
+        window.location.href = '/order-complete/' + payment.payment_id;
     });
-}
+});
 ```
 
 ### Subscription Tiers
@@ -550,8 +457,8 @@ GET https://kaspa-store.com/pay/status/{payment_id}
     "amount_usd": 2.55,
     "txid": "abc123...",
     "store_name": "Your Store",
-    "confirmed_at": "2025-01-19T12:00:00Z",
-    "expires_at": "2025-01-19T12:15:00Z"
+    "confirmed_at": "2026-01-19T12:00:00Z",
+    "expires_at": "2026-01-19T12:15:00Z"
 }
 ```
 
@@ -565,25 +472,6 @@ GET https://kaspa-store.com/pay/status/{payment_id}
 
 ```
 GET https://kaspa-store.com/pay/receipt/{payment_id}
-```
-
-**Response:**
-```json
-{
-    "receipt": {
-        "payment_id": "pay_abc123...",
-        "store_name": "Your Store",
-        "item_description": "Order #1234",
-        "items": [
-            { "name": "T-Shirt", "quantity": 2, "price_kas": 10 },
-            { "name": "Mug", "quantity": 1, "price_kas": 5.5 }
-        ],
-        "amount_kas": 25.5,
-        "amount_usd": 2.55,
-        "txid": "abc123...",
-        "confirmed_at": "2025-01-19T12:00:00Z"
-    }
-}
 ```
 
 Only available for completed payments.
@@ -724,21 +612,6 @@ window.KasperoPay.pay({ amount: 25 });
 
 Keystone, Mobile Wallet, and QR Code all work on mobile devices.
 
-### Items Not Showing in Receipt
-
-**Cause:** The `items` array wasn't passed to `pay()`, or format is incorrect.
-
-**Fix:** Ensure items array has required properties:
-
-```javascript
-window.KasperoPay.pay({
-    amount: 25.5,
-    items: [
-        { name: 'Product', quantity: 1, price_kas: 25.5 }  // Required fields
-    ]
-});
-```
-
 ---
 
 ## FAQ
@@ -764,14 +637,6 @@ Kaspa confirms transactions in about 1 second. The widget waits for blockchain c
 
 Yes! Use the `data-wallets` attribute to specify exactly which payment methods to display. See [Wallet Selection](#wallet-selection).
 
-### Can I get itemized receipts?
-
-Yes! Pass an `items` array to `pay()` with product names, quantities, and prices. The receipt modal and PDF will show the itemized list. See [Itemized Receipts](#itemized-receipts).
-
-### What data do you store?
-
-Payment records (amount, transaction ID, merchant, items). Wallet private keys never leave the user's wallet. See [Privacy & How Auth Works](privacy.md) for details.
-
 ### How do I get support?
 
 - Email: kasperolabs@gmail.com
@@ -782,13 +647,12 @@ Payment records (amount, transaction ID, merchant, items). Wallet private keys n
 
 ## Changelog
 
-**v1.3.1** (February 2025)
-- **NEW:** `items` array option for itemized receipts
-- **NEW:** Receipt modal displays itemized list with quantities and prices
-- **NEW:** PDF receipt includes itemized table
-- **IMPROVED:** Cart integration now supports full item details in payment callback
+**v1.4** (February 2026)
+- **IMPROVED:** Locked wallet handling - prompts unlock instead of showing error
+- **IMPROVED:** Balance check now auto-reconnects if wallet locked mid-payment
+- **FIX:** "Wallet connection lost" error replaced with automatic unlock prompt
 
-**v1.3** (January 2025)
+**v1.3** (January 2026)
 - **NEW:** `data-wallets` attribute to select which payment methods to show
 - **NEW:** Widget Builder in merchant dashboard with live preview
 - **NEW:** Visual theme preview in Widget Builder
@@ -796,7 +660,7 @@ Payment records (amount, transaction ID, merchant, items). Wallet private keys n
 - **FIX:** Empty or invalid `data-wallets` now defaults to all wallets (instead of showing none)
 - **IMPROVED:** Mobile wallet detection and display
 
-**v1.2** (January 2025)
+**v1.2** (January 2026)
 - **NEW:** `showWalletSelector` option to force show/hide wallet selection
 - **NEW:** `showConfirmation` option to show/hide confirmation screen
 - **NEW:** `showNotifications` option to suppress toast messages
@@ -804,13 +668,13 @@ Payment records (amount, transaction ID, merchant, items). Wallet private keys n
 - **NEW:** Kasanova mobile wallet support
 - **FIX:** Keystone redirect now uses full URL (was using pathname only)
 
-**v1.1** (January 2025)
+**v1.1** (January 2026)
 - `connect()` API for wallet-based authentication
 - `isConnected()` helper method
 - `showReceipt` option to suppress widget receipt modal
 - Auto-detect connected wallets
 
-**v1.0** (January 2025)
+**v1.0** (January 2026)
 - Initial release
 - 5 button themes
 - Secure session tokens
@@ -820,3 +684,4 @@ Payment records (amount, transaction ID, merchant, items). Wallet private keys n
 ---
 
 *Built with 💚 for the Kaspa ecosystem*
+

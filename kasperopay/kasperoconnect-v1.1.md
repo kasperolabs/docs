@@ -428,6 +428,12 @@ function logout() {
 }
 ```
 
+### Wallet Switch Handling
+
+If a user switches wallets in their browser extension (Kasware/Kastle), KasperoConnect automatically detects this and prompts re-authentication with the new wallet. This ensures the session always matches the active wallet.
+
+No code required — this happens automatically when the widget is loaded.
+
 ---
 
 ## Advanced: Custom Signup Fields
@@ -538,7 +544,12 @@ KasperoConnect stores minimal data: wallet addresses and email (for OAuth users)
 
 ## Changelog
 
-**v1.1** (January 2025)
+**v1.2** (February 2026)
+- **NEW:** Automatic wallet switch detection - switching wallets in Kasware/Kastle triggers re-authentication
+- **IMPROVED:** Seamless account switching for power users with multiple wallets
+- **FIX:** Session now properly tracks active wallet address
+
+**v1.1** (January 2026)
 - **NEW:** Dedicated Connect widget (separate from Pay widget)
 - **NEW:** Google OAuth authentication
 - **NEW:** Email magic link authentication
@@ -548,7 +559,7 @@ KasperoConnect stores minimal data: wallet addresses and email (for OAuth users)
 - **IMPROVED:** Mobile-friendly auth flow
 - **IMPROVED:** Session management helpers
 
-**v1.0** (January 2025)
+**v1.0** (January 2026)
 - Initial release (as part of KasperoPay)
 - Kasware, Kastle, Keystone wallet support
 - Basic connect/disconnect API
