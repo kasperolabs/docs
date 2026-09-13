@@ -1,4 +1,4 @@
-# KasperoPay Documentation v1.3
+# KasperoPay Documentation v1.4
 
 Accept Kaspa payments on your website in minutes.
 
@@ -18,7 +18,7 @@ Accept Kaspa payments on your website in minutes.
 8. [Advanced: Cart Integration](#advanced-cart-integration)
 9. [Public API Endpoints](#public-api-endpoints)
 10. [Verifying Payments](#verifying-payments)
-11. [Webhooks (Coming Soon)](#webhooks)
+11. [Webhooks](#webhooks)
 12. [Troubleshooting](#troubleshooting)
 13. [FAQ](#faq)
 14. [Changelog](#changelog)
@@ -29,7 +29,7 @@ Accept Kaspa payments on your website in minutes.
 
 ### 1. Get Your Merchant ID
 
-Sign up at [kaspa-store.com/merchant](https://kaspa-store.com/merchant) to get your merchant ID (e.g., `kpm_abc123xy`).
+Sign up at [kasperopay.com/merchant](https://kasperopay.com/merchant) to get your merchant ID (e.g., `kpm_abc123xy`).
 
 ### 2. Add the Widget
 
@@ -42,7 +42,7 @@ Paste this code in your HTML. **Important:** Place the div in your root layout, 
      data-amount="10"
      data-item="Product Name">
 </div>
-<script src="https://kaspa-store.com/pay/widget.js"></script>
+<script src="https://kasperopay.com/pay/widget.js"></script>
 ```
 
 That's it! You now have a working Kaspa payment button.
@@ -57,7 +57,7 @@ If you want to trigger payments via JavaScript without showing a button:
      data-merchant="kpm_YOUR_MERCHANT_ID" 
      style="display:none">
 </div>
-<script src="https://kaspa-store.com/pay/widget.js"></script>
+<script src="https://kasperopay.com/pay/widget.js"></script>
 
 <script>
 // Trigger payment from your own button/logic
@@ -95,10 +95,10 @@ document.getElementById('my-checkout-btn').onclick = function() {
      data-amount="25.5"
      data-item="Premium Subscription"
      data-style="dark"
-     data-wallets="kasware,kastle,keystone"
+     data-wallets="kasware,kastle,kasla"
      data-image="https://yoursite.com/product.jpg">
 </div>
-<script src="https://kaspa-store.com/pay/widget.js"></script>
+<script src="https://kasperopay.com/pay/widget.js"></script>
 ```
 
 ---
@@ -113,7 +113,7 @@ document.getElementById('my-checkout-btn').onclick = function() {
 |--------|-------|-------------|
 | Kasware | `kasware` | Browser extension (desktop) |
 | Kastle | `kastle` | Browser extension (desktop) |
-| Keystone | `keystone` | OAuth-based (all browsers, mobile) |
+| Kasla | `kasla` | OAuth-based (all browsers, mobile) |
 | Mobile Wallet | `mobile` | Any wallet with kaspa: URI support |
 | Kasanova | `kasanova` | Mobile wallet app |
 | QR Code | `qrcode` | Manual payment via QR scan |
@@ -125,7 +125,7 @@ document.getElementById('my-checkout-btn').onclick = function() {
 <div id="kaspero-pay-button"
      data-merchant="kpm_abc123xy"
      data-amount="10"
-     data-wallets="kasware,kastle,keystone">
+     data-wallets="kasware,kastle,kasla">
 </div>
 
 <!-- Desktop-only (browser extensions) -->
@@ -139,7 +139,7 @@ document.getElementById('my-checkout-btn').onclick = function() {
 <div id="kaspero-pay-button"
      data-merchant="kpm_abc123xy"
      data-amount="10"
-     data-wallets="keystone,mobile,kasanova,qrcode">
+     data-wallets="kasla,mobile,kasanova,qrcode">
 </div>
 ```
 
@@ -174,7 +174,7 @@ KasperoPay offers 5 built-in themes to match your site design:
 
 ### Theme Preview
 
-See all themes in action: [kaspa-store.com/demo](https://kaspa-store.com/demo)
+See all themes in action: [kasperopay.com/demo](https://kasperopay.com/demo)
 
 ---
 
@@ -407,7 +407,7 @@ window.KasperoPay.onPayment(function(payment) {
      data-amount="10"
      data-item="Basic Plan">
 </div>
-<script src="https://kaspa-store.com/pay/widget.js"></script>
+<script src="https://kasperopay.com/pay/widget.js"></script>
 
 <script>
 let selectedTier = 'basic';
@@ -445,7 +445,7 @@ All endpoints are CORS-enabled and can be called from browser JavaScript.
 ### Get Payment Status
 
 ```
-GET https://kaspa-store.com/pay/status/{payment_id}
+GET https://kasperopay.com/pay/status/{payment_id}
 ```
 
 **Response:**
@@ -471,7 +471,7 @@ GET https://kaspa-store.com/pay/status/{payment_id}
 ### Get Payment Receipt
 
 ```
-GET https://kaspa-store.com/pay/receipt/{payment_id}
+GET https://kasperopay.com/pay/receipt/{payment_id}
 ```
 
 Only available for completed payments.
@@ -479,7 +479,7 @@ Only available for completed payments.
 ### Verify Payment (Server-Side)
 
 ```
-POST https://kaspa-store.com/pay/verify
+POST https://kasperopay.com/pay/verify
 Content-Type: application/json
 
 {
@@ -508,7 +508,7 @@ app.post('/verify-payment', async (req, res) => {
     const { payment_id } = req.body;
     
     const response = await fetch(
-        `https://kaspa-store.com/pay/status/${payment_id}`
+        `https://kasperopay.com/pay/status/${payment_id}`
     );
     const data = await response.json();
     
@@ -545,12 +545,60 @@ if (tx.is_accepted) {
 
 ## Webhooks
 
-> **Coming Soon**: Server-to-server webhooks for real-time payment notifications.
+KasperoPay can notify your server directly when a payment completes. Set a **Webhook URL** and, optionally, a **Webhook Secret** in your merchant dashboard.
 
-Currently, payment notifications are available via:
-1. JavaScript callback (`onPayment`)
-2. Email notifications (configurable in dashboard)
-3. Polling the `/pay/status/{payment_id}` endpoint
+### Payload
+
+`POST` to your webhook URL with `Content-Type: application/json`:
+
+```json
+{
+    "event": "payment.completed",
+    "timestamp": "2026-02-01T12:00:00.000Z",
+    "merchant_id": "kpm_abc123xy",
+    "payment_id": "pay_abc123...",
+    "order_id": "your-order-ref-or-null",
+    "amount_kas": "25.5",
+    "amount_usd": "2.55",
+    "transaction_id": "kaspa txid",
+    "customer_address": "kaspa:qz...",
+    "item": "Premium Plan",
+    "metadata": { "anything": "you passed to pay()" }
+}
+```
+
+`order_id` and `metadata` are whatever you supplied when creating the payment, so you can match the webhook to your own records without a lookup table.
+
+### Signature
+
+If you set a Webhook Secret, every request carries an `X-KasperoPay-Signature` header: the hex HMAC-SHA256 of the raw request body, keyed with your secret. Verify it before trusting the payload:
+
+```javascript
+const crypto = require('crypto');
+
+app.post('/kasperopay/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+    const expected = crypto
+        .createHmac('sha256', process.env.KASPEROPAY_WEBHOOK_SECRET)
+        .update(req.body)              // raw bytes, not a re-serialized object
+        .digest('hex');
+
+    const received = req.get('X-KasperoPay-Signature') || '';
+    if (received.length !== expected.length ||
+        !crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected))) {
+        return res.status(401).end();
+    }
+
+    const payload = JSON.parse(req.body);
+    // fulfil payload.order_id ...
+    res.json({ ok: true });
+});
+```
+
+### Recommended pattern
+
+Use the webhook as the source of truth for fulfilment and the `onPayment` callback only to update the page the customer is looking at. If your server ever receives a callback-driven request before the webhook, confirm it with `GET /pay/status/{payment_id}` rather than trusting the browser.
+
+Webhooks are sent once, immediately after confirmation. If your endpoint is down, poll `/pay/status/{payment_id}` for any orders left pending.
 
 ---
 
@@ -570,7 +618,7 @@ Currently, payment notifications are available via:
 <div id="kaspero-pay-button" data-merchant="kpm_xxx" style="display:none"></div>
 ```
 
-### Keystone Redirects to Wrong Site
+### Kasla Redirects to Wrong Site
 
 **Cause:** Widget was sending pathname only, not full URL.
 
@@ -606,11 +654,11 @@ window.KasperoPay.pay({ amount: 25 });
 ```html
 <div id="kaspero-pay-button"
      data-merchant="kpm_xxx"
-     data-wallets="kasware,kastle,keystone,mobile,qrcode">
+     data-wallets="kasware,kastle,kasla,mobile,qrcode">
 </div>
 ```
 
-Keystone, Mobile Wallet, and QR Code all work on mobile devices.
+Kasla, Mobile Wallet, and QR Code all work on mobile devices.
 
 ---
 
@@ -620,7 +668,7 @@ Keystone, Mobile Wallet, and QR Code all work on mobile devices.
 
 - **Kasware** - Browser extension (desktop)
 - **Kastle** - Browser extension (desktop)
-- **Keystone** - OAuth-based wallet (all browsers, including mobile)
+- **Kasla** - OAuth-based wallet (all browsers, including mobile)
 - **Kasanova** - Mobile wallet app
 - **Mobile Wallet** - Any wallet supporting kaspa: URI scheme
 - **QR Code** - Manual payment via any wallet
@@ -647,6 +695,11 @@ Yes! Use the `data-wallets` attribute to specify exactly which payment methods t
 
 ## Changelog
 
+**Documentation update** (September 2026)
+- All URLs now use kasperopay.com (kaspa-store.com is a separate store again; old widget URLs redirect)
+- Keystone is now Kasla (kasla.io); the `data-wallets` value is `kasla`
+- Webhooks documented (payload, `X-KasperoPay-Signature`, recommended verification pattern)
+
 **v1.4** (February 2026)
 - **IMPROVED:** Locked wallet handling - prompts unlock instead of showing error
 - **IMPROVED:** Balance check now auto-reconnects if wallet locked mid-payment
@@ -666,7 +719,7 @@ Yes! Use the `data-wallets` attribute to specify exactly which payment methods t
 - **NEW:** `showNotifications` option to suppress toast messages
 - **NEW:** `onCancel` callback for cancelled payments
 - **NEW:** Kasanova mobile wallet support
-- **FIX:** Keystone redirect now uses full URL (was using pathname only)
+- **FIX:** Kasla redirect now uses full URL (was using pathname only)
 
 **v1.1** (January 2026)
 - `connect()` API for wallet-based authentication
@@ -678,10 +731,9 @@ Yes! Use the `data-wallets` attribute to specify exactly which payment methods t
 - Initial release
 - 5 button themes
 - Secure session tokens
-- Multi-wallet support (Kasware, Kastle, Keystone, QR)
+- Multi-wallet support (Kasware, Kastle, Kasla, QR)
 - Payment verification API
 
 ---
 
 *Built with 💚 for the Kaspa ecosystem*
-

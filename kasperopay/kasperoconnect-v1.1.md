@@ -1,4 +1,4 @@
-# KasperoConnect Documentation v1.1
+# KasperoConnect Documentation v1.2
 
 Add wallet-based authentication to your website. Let users sign in with their Kaspa wallet or social accounts.
 > **Using AI to build your site?** See our [No-Code Integration Guide](kasperoconnect-nocode-guide.md) with copy-paste prompts for Replit, Cursor, and other AI coding tools.
@@ -12,7 +12,7 @@ Add wallet-based authentication to your website. Let users sign in with their Ka
 3. [Authentication Methods](#authentication-methods)
 4. [Themes](#themes)
 5. [JavaScript API](#javascript-api)
-6. [Handling the Auth Callback](#handling-the-auth-callback)
+6. [Handling the Auth Callback](#handling-the-auth-callback) and [Verifying the Token](#verifying-the-token)
 7. [User Object](#user-object)
 8. [Session Management](#session-management)
 9. [Advanced: Custom Signup Fields](#advanced-custom-signup-fields)
@@ -26,16 +26,16 @@ Add wallet-based authentication to your website. Let users sign in with their Ka
 
 ### 1. Get Your Merchant ID
 
-Sign up at [kaspa-store.com/merchant](https://kaspa-store.com/merchant) to get your merchant ID (e.g., `kpm_abc123xy`).
+Sign up at [kasperopay.com/merchant](https://kasperopay.com/merchant) to get your merchant ID (e.g., `kpm_abc123xy`).
 
 ### 2. Add the Widget
 
 ```html
 <div id="kaspero-connect-button"
      data-merchant="kpm_YOUR_MERCHANT_ID"
-     data-wallets="kasware,kastle,keystone,google,email">
+     data-wallets="kasware,kastle,kasla,google,email">
 </div>
-<script src="https://kaspa-store.com/connect/widget.js"></script>
+<script src="https://kasperopay.com/connect/widget.js"></script>
 ```
 
 That's it! You now have a "Connect Wallet" button.
@@ -49,7 +49,7 @@ window.KasperoConnect.onConnect = function(user) {
     // user.address - Kaspa address (if wallet)
     // user.email - Email (if social/email login)
     // user.token - JWT token for your backend
-    // user.walletType - 'kasware', 'kastle', 'keystone', 'google', or 'email'
+    // user.walletType - 'kasware', 'kastle', 'kasla', 'google', or 'email'
     
     // Save to your app state, redirect, etc.
     localStorage.setItem('user', JSON.stringify(user));
@@ -75,11 +75,11 @@ window.KasperoConnect.onConnect = function(user) {
 ```html
 <div id="kaspero-connect-button"
      data-merchant="kpm_abc123xy"
-     data-wallets="kasware,kastle,keystone,google"
+     data-wallets="kasware,kastle,kasla,google"
      data-theme="dark"
      data-button-text="Sign In">
 </div>
-<script src="https://kaspa-store.com/connect/widget.js"></script>
+<script src="https://kasperopay.com/connect/widget.js"></script>
 ```
 
 ---
@@ -92,7 +92,7 @@ window.KasperoConnect.onConnect = function(user) {
 |--------|-------|-------------|----------|
 | Kasware | `kasware` | Browser extension | Desktop |
 | Kastle | `kastle` | Browser extension | Desktop |
-| Keystone | `keystone` | OAuth-based wallet | All devices |
+| Kasla | `kasla` | OAuth-based wallet | All devices |
 | Google | `google` | Google account | All devices |
 | Email | `email` | Email magic link | All devices |
 
@@ -101,7 +101,7 @@ window.KasperoConnect.onConnect = function(user) {
 ```html
 <!-- Wallet-only authentication -->
 <div id="kaspero-connect-button"
-     data-wallets="kasware,kastle,keystone">
+     data-wallets="kasware,kastle,kasla">
 </div>
 
 <!-- Social login only -->
@@ -111,12 +111,12 @@ window.KasperoConnect.onConnect = function(user) {
 
 <!-- Mobile-friendly (no browser extensions) -->
 <div id="kaspero-connect-button"
-     data-wallets="keystone,google,email">
+     data-wallets="kasla,google,email">
 </div>
 
 <!-- All options -->
 <div id="kaspero-connect-button"
-     data-wallets="kasware,kastle,keystone,google,email">
+     data-wallets="kasware,kastle,kasla,google,email">
 </div>
 ```
 
@@ -127,9 +127,9 @@ window.KasperoConnect.onConnect = function(user) {
 - Instant connection via extension API
 - Returns Kaspa address and public key
 
-**Keystone** (OAuth Wallet)
+**Kasla** (OAuth Wallet)
 - Works on any browser, including mobile
-- Redirects to Keystone for authentication
+- Redirects to Kasla for authentication
 - Returns to your site with token in URL params
 
 **Google**
@@ -174,7 +174,7 @@ Instead of using the button, trigger the connect modal programmatically:
 ```javascript
 // Basic usage
 window.KasperoConnect.connect({
-    wallets: ['kasware', 'kastle', 'keystone', 'google'],
+    wallets: ['kasware', 'kastle', 'kasla', 'google'],
     onConnect: function(user) {
         console.log('Connected!', user);
     },
@@ -192,7 +192,7 @@ window.KasperoConnect.connect({
     merchant: 'kpm_abc123xy',
     
     // Which auth methods to show
-    wallets: ['kasware', 'kastle', 'keystone', 'google', 'email'],
+    wallets: ['kasware', 'kastle', 'kasla', 'google', 'email'],
     
     // Force show selector even if already connected
     forceSelect: false,
@@ -238,14 +238,14 @@ window.KasperoConnect.onConnect = function(user) {
 
 ## Handling the Auth Callback
 
-Some authentication methods (Keystone, Google) redirect users away from your site and back. You need to catch the return.
+Some authentication methods (Kasla, Google) redirect users away from your site and back. You need to catch the return.
 
 ### URL Parameters
 
 After redirect, your URL will contain:
 
 ```
-https://yoursite.com/page?kc_connected=true&token=xxx&wallet=keystone
+https://yoursite.com/page?kc_connected=true&token=xxx&wallet=kasla
 ```
 
 ### Handling the Callback
@@ -300,42 +300,47 @@ useEffect(() => {
 }, []);
 ```
 
-### Decoding the Token
+### Verifying the Token
 
-The token is a JWT. You can decode it (without verification) to get user info:
-
-```javascript
-// Client-side decode
-function decodeJWT(token) {
-    const payload = token.split('.')[1];
-    return JSON.parse(atob(payload));
-}
-
-const user = decodeJWT(token);
-// { userId: 123, email: "user@example.com", isKeystone: true }
-```
+The token is a JWT signed by KasperoConnect. Your server cannot check the signature itself (it does not hold the key), so **do not** `jwt.decode()` it and trust the contents: anyone can forge an unsigned payload. Ask KasperoConnect instead, then issue your own session token for your own app.
 
 **Server-side (Node.js):**
 
 ```javascript
 const jwt = require('jsonwebtoken');
 
-app.get('/api/auth/me', (req, res) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-        return res.status(401).json({ error: 'No token' });
-    }
-    
-    // Decode without verification - token already validated by KasperoConnect
-    const decoded = jwt.decode(token);
-    
-    res.json({
-        id: decoded.userId,
-        email: decoded.email,
-        authType: decoded.isKeystone ? 'keystone' : 'wallet'
+// POST /api/auth/kaspero  { token }
+app.post('/api/auth/kaspero', async (req, res) => {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'No token' });
+
+    // 1. Ask KasperoConnect whether this token is real
+    const kpRes = await fetch('https://kasperopay.com/api/auth/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
     });
+    if (!kpRes.ok) return res.status(401).json({ error: 'Invalid token' });
+    const { user } = await kpRes.json();
+
+    // user.address (wallet methods), user.email (Kasla, Google, Email), user.profile
+
+    // 2. Find or create the user in YOUR database
+    const localUser = await findOrCreateUser({ address: user.address, email: user.email });
+
+    // 3. Issue YOUR session token, with YOUR expiry
+    const session = jwt.sign({ userId: localUser.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token: session, user: localUser });
 });
+```
+
+The frontend then stores *your* session token and forgets the KasperoConnect one. This keeps your users signed in for as long as you decide, independent of their wallet extension.
+
+**Client-side decode (display only):**
+
+```javascript
+function decodeJWT(token) {
+    return JSON.parse(atob(token.split('.')[1]));
+}
+// Fine for showing an email in the UI. Never for authorization.
 ```
 
 ---
@@ -349,8 +354,8 @@ The user object returned on connection contains:
 | `address` | string | Kaspa address | Wallet methods |
 | `walletType` | string | Auth method used | All |
 | `publicKey` | string | Public key | Kasware, Kastle |
-| `email` | string | User's email | Keystone, Google, Email |
-| `token` | string | JWT auth token | OAuth methods |
+| `email` | string | User's email | Kasla, Google, Email |
+| `token` | string | JWT auth token, signed by KasperoConnect | All |
 
 ### Examples
 
@@ -359,15 +364,16 @@ The user object returned on connection contains:
 {
     address: "kaspa:qz...",
     walletType: "kasware",
-    publicKey: "abc123..."
+    publicKey: "abc123...",
+    token: "eyJ..."
 }
 ```
 
-**Keystone connection:**
+**Kasla connection:**
 ```javascript
 {
     address: "kaspa:qz...",
-    walletType: "keystone",
+    walletType: "kasla",
     email: "user@example.com",
     token: "eyJ..."
 }
@@ -388,20 +394,21 @@ The user object returned on connection contains:
 
 ### Persisting Sessions
 
-KasperoConnect doesn't automatically persist sessions. Store the token yourself:
+The widget keeps its own connection state in `localStorage` (`kc_token`, `kc_wallet`) so it can skip the selector for returning users. That is the widget's memory, not your app's session. Store your own token, obtained from the exchange in [Verifying the Token](#verifying-the-token), and drive your UI from that:
 
 ```javascript
-window.KasperoConnect.onConnect = function(user) {
-    // Store session
-    localStorage.setItem('kc_token', user.token);
-    localStorage.setItem('kc_wallet', user.walletType);
-    if (user.address) {
-        localStorage.setItem('kc_address', user.address);
-    }
+window.KasperoConnect.onConnect = async function(user) {
+    const res = await fetch('/api/auth/kaspero', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: user.token })
+    });
+    const data = await res.json();
+    localStorage.setItem('session_token', data.token);   // YOUR token
 };
 
 // On page load, restore session
-const token = localStorage.getItem('kc_token');
+const token = localStorage.getItem('session_token');
 if (token) {
     // User is logged in
     showDashboard();
@@ -415,10 +422,8 @@ if (token) {
 
 ```javascript
 function logout() {
-    // Clear stored session
-    localStorage.removeItem('kc_token');
-    localStorage.removeItem('kc_wallet');
-    localStorage.removeItem('kc_address');
+    // Clear your session
+    localStorage.removeItem('session_token');
     
     // Disconnect widget
     window.KasperoConnect.disconnect();
@@ -430,9 +435,9 @@ function logout() {
 
 ### Wallet Switch Handling
 
-If a user switches wallets in their browser extension (Kasware/Kastle), KasperoConnect automatically detects this and prompts re-authentication with the new wallet. This ensures the session always matches the active wallet.
+If a user switches accounts in their browser extension (Kasware/Kastle), KasperoConnect detects it and prompts re-authentication with the new wallet, so the widget's own connection state always matches the active account.
 
-No code required — this happens automatically when the widget is loaded.
+This affects the widget's state only. Whether it should also end the user's session in your app is your call: a wallet-gated dApp probably wants that; a shop, where the wallet only matters at checkout, usually does not. If you issue your own session token as described above, your session survives wallet switches and extension auto-locks, and the wallet is asked for again only when a payment needs it.
 
 ---
 
@@ -497,7 +502,7 @@ window.KasperoConnect.connect({
 **Fix:** Use mobile-friendly auth methods:
 ```html
 <div id="kaspero-connect-button"
-     data-wallets="keystone,google,email">
+     data-wallets="kasla,google,email">
 </div>
 ```
 
@@ -530,7 +535,7 @@ Yes! Google and Email authentication don't require a Kaspa wallet. Users get an 
 
 ### Is the token secure?
 
-The JWT token is signed by KasperoConnect servers. You can decode it to read user info, but you cannot forge or modify it.
+The JWT token is signed by KasperoConnect servers. You cannot forge or modify a valid one, but your server cannot check the signature locally either, so verify it with `GET https://kasperopay.com/api/auth/verify` before trusting it (see [Verifying the Token](#verifying-the-token)).
 
 ### How do I associate wallet users with email users?
 
@@ -543,6 +548,12 @@ KasperoConnect stores minimal data: wallet addresses and email (for OAuth users)
 ---
 
 ## Changelog
+
+**Documentation update** (September 2026)
+- All URLs now use kasperopay.com; Keystone is now Kasla (`kasla`)
+- Token is returned for every auth method, including Kasware and Kastle
+- Replaced "decode without verification" with server-side verification via `/api/auth/verify` and a your-own-session pattern
+- Clarified that wallet-switch detection affects widget state, not your app's session
 
 **v1.2** (February 2026)
 - **NEW:** Automatic wallet switch detection - switching wallets in Kasware/Kastle triggers re-authentication
@@ -561,10 +572,9 @@ KasperoConnect stores minimal data: wallet addresses and email (for OAuth users)
 
 **v1.0** (January 2026)
 - Initial release (as part of KasperoPay)
-- Kasware, Kastle, Keystone wallet support
+- Kasware, Kastle, Kasla wallet support
 - Basic connect/disconnect API
 
 ---
 
 *Built with 💚 for the Kaspa ecosystem*
-
