@@ -871,6 +871,3 @@ Not if they signed in with a wallet (Kasware, Kastle, Kaspire, Kasla). The two w
 - Multi-wallet support (Kasware, Kastle, Kasla, QR)
 - Payment verification API
 
----
-
-*Built with 💚 for the Kaspa ecosystem*

@@ -238,6 +238,18 @@ Two things to know:
 - If the user is already connected and `forceNew` is not set, `connect()` skips the modal and calls `onConnect` immediately with the existing session.
 - The callbacks you pass to `connect()` replace the global `KasperoConnect.onConnect` for as long as the page lives, and they do not survive the Kasla or Google redirect (the page reloads). The `kaspero-connect` window event is not affected by either, which is why Quick Start uses it.
 
+### Your Own Login Buttons
+
+If your page has its own "Sign in with Kasla" or "Sign in with Google" button, start that method directly instead of opening the selector:
+
+```javascript
+document.getElementById('my-kasla-button').onclick = function () {
+    KasperoConnect.connectWith('kasla');     // or 'google', 'kasware', 'kastle', 'kaspire', 'email'
+};
+```
+
+The result arrives the same way as any other sign-in: the `kaspero-connect` event and `KasperoConnect.onConnect`. Do not link your button straight to `/api/auth/kasla/connect` or `/api/auth/google/connect`: a sign-in started that way comes back in the query string, and the widget refuses it.
+
 ### Other Methods
 
 ```javascript
@@ -691,6 +703,7 @@ Wallet addresses, and email addresses for Kasla and Google users. For the hosted
 - **SECURITY:** Kasla and Google sign-ins now return in the URL fragment with a one-time state check, and the token is confirmed with the server before the session is saved. Tokens in the query string are refused
 - **BREAKING:** Reading `?kc_connected=true&token=...` yourself no longer works. Use the `kaspero-connect` event or `KasperoConnect.onConnect`
 - **NEW:** `kaspero-connect` window event, fired after every verified sign-in
+- **NEW:** `connectWith(method)` starts one sign-in method from your own button
 - **NEW:** Kaspire wallet (`kaspire`)
 - **FIX:** Email sign-in could save the typed password in `localStorage` when the login endpoint returned no user object. The widget also removes any password left there by earlier versions
 - **FIX:** Google sessions are now restored after a page reload
@@ -721,6 +734,3 @@ Wallet addresses, and email addresses for Kasla and Google users. For the hosted
 - Kasware, Kastle, Kasla wallet support
 - Basic connect/disconnect API
 
----
-
-*Built with 💚 for the Kaspa ecosystem*
