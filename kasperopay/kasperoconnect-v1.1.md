@@ -1,25 +1,42 @@
-# KasperoConnect Documentation v1.3
+# KasperoConnect Documentation v1.4
 
-Add sign-in to your website. Let users sign in with their Kaspa wallet, a Kasla account, Google, or email.
+Add wallet sign-in to your website. Users sign in with a Kaspa wallet extension or a Kasla account, and your site receives their wallet address.
 > **Using AI to build your site?** See our [No-Code Integration Guide](kasperoconnect-nocode-guide.md) with copy-paste prompts for Replit, Cursor, and other AI coding tools.
 
 ---
 
 ## Table of Contents
 
-1. [Quick Start](#quick-start)
-2. [Configuration](#configuration)
-3. [Authentication Methods](#authentication-methods)
-4. [Button Styles and Themes](#button-styles-and-themes)
-5. [JavaScript API](#javascript-api)
-6. [Redirect Sign-Ins (Kasla, Google)](#redirect-sign-ins-kasla-google)
-7. [Verifying the Token](#verifying-the-token)
-8. [The Connect Result](#the-connect-result)
-9. [Session Management](#session-management)
-10. [Email Sign-In and Custom Signup Fields](#email-sign-in-and-custom-signup-fields)
-11. [Troubleshooting](#troubleshooting)
-12. [FAQ](#faq)
-13. [Changelog](#changelog)
+1. [What Your Site Receives](#what-your-site-receives)
+2. [Quick Start](#quick-start)
+3. [Configuration](#configuration)
+4. [Sign-In Methods](#sign-in-methods)
+5. [Button Styles and Themes](#button-styles-and-themes)
+6. [JavaScript API](#javascript-api)
+7. [Kasla Sign-In (Redirect)](#kasla-sign-in-redirect)
+8. [Verifying the Token](#verifying-the-token)
+9. [The Connect Result](#the-connect-result)
+10. [Session Management](#session-management)
+11. [Upgrading from v1.3](#upgrading-from-v13)
+12. [Troubleshooting](#troubleshooting)
+13. [FAQ](#faq)
+14. [Changelog](#changelog)
+
+---
+
+## What Your Site Receives
+
+A sign-in gives your site three things:
+
+| Item | Description |
+|------|-------------|
+| Wallet address | The user's Kaspa address. This is their identity on your site |
+| Wallet type | `kasware`, `kastle`, `kaspire` or `kasla` |
+| Token | Proof of the sign-in, which your server confirms with KasperoConnect |
+
+That is all. KasperoConnect does not pass on an email, a name, a profile or an account number, and the token cannot be used to look any of those up. If your site needs an email or a shipping address, ask the user for it on your own form after they sign in.
+
+The token is limited. It works for two things: confirming the sign-in from your server, and paying with KasperoPay. Every other KasperoPay endpoint refuses it. It also names the site it was issued for, so your server can reject a token that was issued somewhere else.
 
 ---
 
@@ -34,7 +51,7 @@ Sign up at [kasperopay.com/merchant](https://kasperopay.com/merchant) to get you
 ```html
 <div id="kaspero-connect-button"
      data-merchant="kpm_YOUR_MERCHANT_ID"
-     data-wallets="kasware,kastle,kaspire,kasla,google,email">
+     data-wallets="kasware,kastle,kaspire,kasla">
 </div>
 <script src="https://kasperopay.com/connect/widget.js"></script>
 ```
@@ -43,14 +60,14 @@ That's it! You now have a "Connect" button.
 
 ### 3. Handle the Connection
 
-Register one listener when the page loads. It fires for every sign-in method, including the ones that leave your site and come back (Kasla, Google).
+Register one listener when the page loads. It fires for every sign-in method, including Kasla, which leaves your site and comes back.
 
 ```javascript
 window.addEventListener('kaspero-connect', function (e) {
     var result = e.detail;
+    // result.address    - the user's Kaspa address
+    // result.walletType - 'kasware', 'kastle', 'kaspire' or 'kasla'
     // result.token      - JWT for your backend (verify it server-side, see below)
-    // result.walletType - 'kasware', 'kastle', 'kaspire', 'kasla', 'email', or null for Google
-    // result.user       - details about the user (shape depends on the method)
 
     sendTokenToMyServer(result.token);
 });
@@ -76,16 +93,13 @@ window.KasperoConnect.onConnect = function (result) { /* same as above */ };
 | `data-theme` | No | Modal theme: `light` (default) or `dark` |
 | `data-button-text` | No | Button text (default: "Connect") |
 | `data-modal-title` | No | Title of the sign-in modal (default: "Connect") |
-| `data-signup-endpoint` | No | Your own endpoint for email signups (see [Email Sign-In](#email-sign-in-and-custom-signup-fields)) |
-| `data-signup-fields` | No | Comma-separated signup field presets, e.g. `email,password,name` |
-| `data-login-endpoint` | No | Your own endpoint for email logins |
 
 ### Example: Full Configuration
 
 ```html
 <div id="kaspero-connect-button"
      data-merchant="kpm_abc123xy"
-     data-wallets="kasware,kastle,kaspire,kasla,google"
+     data-wallets="kasware,kastle,kaspire,kasla"
      data-style="dark"
      data-theme="dark"
      data-button-text="Sign In"
@@ -102,13 +116,12 @@ When `data-merchant` is set, the widget loads the Connect settings saved in your
 |---------|--------|
 | Sign-in methods | `data-wallets` if present, otherwise the dashboard list |
 | Theme and button style | The dashboard setting. `data-theme` and `data-style` only apply when `data-merchant` is not set |
-| Signup / login endpoints and fields | The dashboard setting, if one is saved |
 
 Options passed to `KasperoConnect.connect({...})` apply to that call and override both.
 
 ---
 
-## Authentication Methods
+## Sign-In Methods
 
 ### Available Methods
 
@@ -118,33 +131,28 @@ Options passed to `KasperoConnect.connect({...})` apply to that call and overrid
 | Kastle | `kastle` | Browser extension | Desktop |
 | Kaspire | `kaspire` | Browser extension | Desktop |
 | Kasla | `kasla` | Kasla wallet account (redirect) | All devices |
-| Google | `google` | Google account (redirect) | All devices |
-| Email | `email` | Email and password | All devices |
+
+Any other value in `data-wallets` or `wallets` is ignored. Google and email sign-in are no longer offered to sites, see [Upgrading from v1.3](#upgrading-from-v13).
 
 ### Usage
 
 ```html
-<!-- Wallet-only authentication -->
+<!-- All wallets -->
 <div id="kaspero-connect-button"
      data-wallets="kasware,kastle,kaspire,kasla">
 </div>
 
-<!-- Social / email only -->
+<!-- Mobile-friendly (no browser extension needed) -->
 <div id="kaspero-connect-button"
-     data-wallets="google,email">
-</div>
-
-<!-- Mobile-friendly (no browser extensions) -->
-<div id="kaspero-connect-button"
-     data-wallets="kasla,google,email">
+     data-wallets="kasla">
 </div>
 ```
 
 ### Default Behavior
 
-- Without `data-wallets` and without `data-merchant`: Kasware, Kastle, Kaspire, Kasla, Google, Email.
+- Without `data-wallets` and without `data-merchant`: Kasware, Kastle, Kaspire, Kasla.
 - With `data-merchant` and no `data-wallets`: the methods enabled in your dashboard (Kaspire has to be enabled there, or listed in `data-wallets`).
-- Extension wallets appear only on desktop, and only when the extension is installed in the visitor's browser. A visitor without any of them simply does not see those options.
+- Extension wallets appear only on desktop, and only when the extension is installed in the visitor's browser. A visitor without any of them simply does not see those options. Keep `kasla` in the list so every visitor has a way in.
 
 ### Method Details
 
@@ -157,14 +165,6 @@ Options passed to `KasperoConnect.connect({...})` apply to that call and overrid
 - Works on any browser, including mobile
 - Redirects to Kasla and back to the page the user started on
 - Gives you a Kaspa address, and the session can be used by KasperoPay on the same site
-
-**Google**
-- Redirects to Google and back
-- Identity only: no Kaspa address, and `walletType` is `null`
-
-**Email**
-- Email and password, with "Create account" and "Forgot password" in the same modal
-- Uses your own endpoints, or KasperoConnect's hosted customer list if you do not set any
 
 ---
 
@@ -201,9 +201,9 @@ Instead of using the button, open the sign-in modal yourself:
 
 ```javascript
 window.KasperoConnect.connect({
-    wallets: ['kasware', 'kastle', 'kasla', 'google'],
+    wallets: ['kasware', 'kastle', 'kasla'],
     onConnect: function (result) {
-        console.log('Connected!', result.token, result.walletType, result.user);
+        console.log('Connected!', result.address, result.walletType);
     },
     onCancel: function () {
         console.log('User closed the modal');
@@ -211,23 +211,19 @@ window.KasperoConnect.connect({
 });
 ```
 
-`connect()` returns a Promise that resolves to `true` when the user signed in on this page, and `false` when they closed the modal or were redirected to Kasla or Google.
+`connect()` returns a Promise that resolves to `true` when the user signed in on this page, and `false` when they closed the modal or were redirected to Kasla.
 
 ### Full Options
 
 ```javascript
 window.KasperoConnect.connect({
     merchant: 'kpm_abc123xy',                 // associate sign-ins with your account
-    wallets: ['kasware', 'kastle', 'kaspire', 'kasla', 'google', 'email'],
+    wallets: ['kasware', 'kastle', 'kaspire', 'kasla'],
     forceNew: false,                          // true = show the modal even if already connected
     theme: 'dark',                            // modal theme
     modalTitle: 'Sign in',
-    signup: { endpoint: '...', fields: [] },  // see Email Sign-In
-    login:  { endpoint: '...' },
 
     onConnect: function (result) { },         // any successful sign-in
-    onSignup:  function (result) { },         // email: account created
-    onLogin:   function (result) { },         // email: signed in
     onCancel:  function () { },               // modal closed
     onError:   function (message) { }         // message is a string
 });
@@ -236,19 +232,19 @@ window.KasperoConnect.connect({
 Two things to know:
 
 - If the user is already connected and `forceNew` is not set, `connect()` skips the modal and calls `onConnect` immediately with the existing session.
-- The callbacks you pass to `connect()` replace the global `KasperoConnect.onConnect` for as long as the page lives, and they do not survive the Kasla or Google redirect (the page reloads). The `kaspero-connect` window event is not affected by either, which is why Quick Start uses it.
+- The callbacks you pass to `connect()` replace the global `KasperoConnect.onConnect` for as long as the page lives, and they do not survive the Kasla redirect (the page reloads). The `kaspero-connect` window event is not affected by either, which is why Quick Start uses it.
 
 ### Your Own Login Buttons
 
-If your page has its own "Sign in with Kasla" or "Sign in with Google" button, start that method directly instead of opening the selector:
+If your page has its own "Sign in with Kasla" button, start that method directly instead of opening the selector:
 
 ```javascript
 document.getElementById('my-kasla-button').onclick = function () {
-    KasperoConnect.connectWith('kasla');     // or 'google', 'kasware', 'kastle', 'kaspire', 'email'
+    KasperoConnect.connectWith('kasla');     // or 'kasware', 'kastle', 'kaspire'
 };
 ```
 
-The result arrives the same way as any other sign-in: the `kaspero-connect` event and `KasperoConnect.onConnect`. Do not link your button straight to `/api/auth/kasla/connect` or `/api/auth/google/connect`: a sign-in started that way comes back in the query string, and the widget refuses it.
+The result arrives the same way as any other sign-in: the `kaspero-connect` event and `KasperoConnect.onConnect`. Do not link your button straight to `/api/auth/kasla/connect`: a sign-in started that way comes back in the query string, and the widget refuses it.
 
 ### Other Methods
 
@@ -256,33 +252,30 @@ The result arrives the same way as any other sign-in: the `kaspero-connect` even
 KasperoConnect.isReady();        // widget initialised
 KasperoConnect.isConnected();    // true when a session token is held
 KasperoConnect.getToken();       // the JWT, or null
-KasperoConnect.getUser();        // the user object, or null
-KasperoConnect.getWalletType();  // 'kasware' | 'kastle' | 'kaspire' | 'kasla' | 'email' | null
+KasperoConnect.getUser();        // { address: 'kaspa:qz...' }, or null
+KasperoConnect.getWalletType();  // 'kasware' | 'kastle' | 'kaspire' | 'kasla' | null
 KasperoConnect.disconnect();     // clear the session
 
 // Set defaults without opening the modal
 KasperoConnect.configure({
     merchant: 'kpm_abc123xy',
-    wallets: ['kasla', 'google'],
+    wallets: ['kasla', 'kasware'],
     theme: 'dark',
-    style: 'kaspa',
-    signup: { /* ... */ },
-    login:  { /* ... */ }
+    style: 'kaspa'
 });
 
-KasperoConnect.WALLETS;  // { KASWARE: 'kasware', KASTLE: 'kastle', KASPIRE: 'kaspire', KASLA: 'kasla', GOOGLE: 'google', EMAIL: 'email', ... }
-KasperoConnect.FIELDS;   // signup field presets, see Email Sign-In
+KasperoConnect.WALLETS;  // { KASWARE: 'kasware', KASTLE: 'kastle', KASPIRE: 'kaspire', KASLA: 'kasla' }
 ```
 
 ---
 
-## Redirect Sign-Ins (Kasla, Google)
+## Kasla Sign-In (Redirect)
 
-Kasla and Google send the user away from your site and back. **The widget handles the return itself.** You do not read anything from the URL.
+Kasla sends the user away from your site and back. **The widget handles the return itself.** You do not read anything from the URL.
 
 What happens:
 
-1. The user picks Kasla or Google. The widget remembers a one-time code in the browser tab and redirects.
+1. The user picks Kasla. The widget remembers a one-time code in the browser tab and redirects.
 2. After sign-in, the user lands back on the same page (same path and query string).
 3. The widget checks the one-time code, confirms the token with KasperoConnect, saves the session, and only then fires `kaspero-connect` and `onConnect`.
 
@@ -292,8 +285,8 @@ What you need to do:
 - Register your `kaspero-connect` listener, or set `KasperoConnect.onConnect`, when the page loads. A callback passed to `connect()` before the redirect is gone after the reload.
 
 ```javascript
-// Runs on every page load. Fires right after a Kasla or Google return,
-// and for extension and email sign-ins as well.
+// Runs on every page load. Fires right after a Kasla return,
+// and for extension sign-ins as well.
 window.addEventListener('kaspero-connect', function (e) {
     sendTokenToMyServer(e.detail.token);
 });
@@ -306,14 +299,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 ```
 
-### Upgrading from v1.2
-
-Earlier versions returned the token in the query string (`?kc_connected=true&token=...`) and the docs told you to read it yourself. That no longer works, on purpose:
-
-- The token never appears in the query string any more, so it stays out of your server logs.
-- A sign-in link made by someone else is refused. Before, a crafted link could sign a visitor into the link author's account.
-
-If your site has code that reads `kc_connected`, `token`, `kc_token`, `google_connected` or `kasla_connected` from `window.location.search`, delete it and use the listener above.
+The token never appears in the query string, so it stays out of your server logs, and a sign-in link made by someone else is refused. If your site has old code that reads `kc_connected`, `token`, `kc_token` or `kasla_connected` from `window.location.search`, delete it and use the listener above.
 
 ---
 
@@ -321,7 +307,7 @@ If your site has code that reads `kc_connected`, `token`, `kc_token`, `google_co
 
 The token is a JWT signed by KasperoConnect. Your server cannot check the signature itself (it does not hold the key), so **do not** `jwt.decode()` it and trust the contents: anyone can forge an unsigned payload. Ask KasperoConnect instead, then issue your own session token for your own app.
 
-**Server-side (Node.js), wallet, Kasla and Google tokens:**
+**Server-side (Node.js):**
 
 ```javascript
 const jwt = require('jsonwebtoken');
@@ -338,18 +324,16 @@ app.post('/api/auth/kaspero', async (req, res) => {
     });
     if (!kpRes.ok) return res.status(401).json({ error: 'Invalid token' });
     const { valid, user } = await kpRes.json();
-    if (!valid || !user) return res.status(401).json({ error: 'Invalid token' });
+    if (!valid || !user || !user.address) return res.status(401).json({ error: 'Invalid token' });
 
     // 2. Make sure the token was issued for YOUR site, not for another site
     //    the same person signed in to
-    if (user.site && user.site !== MY_ORIGIN) {
+    if (user.site !== MY_ORIGIN) {
         return res.status(401).json({ error: 'Token issued for another site' });
     }
 
-    // 3. Find or create the user in YOUR database
-    //    user.id      - stable KasperoConnect user id
-    //    user.address - Kaspa address (wallet methods and Kasla; null for Google)
-    const localUser = await findOrCreateUser({ kasperoId: user.id, address: user.address });
+    // 3. Find or create the user in YOUR database, keyed by wallet address
+    const localUser = await findOrCreateUser({ address: user.address });
 
     // 4. Issue YOUR session token, with YOUR expiry
     const session = jwt.sign({ userId: localUser.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -363,29 +347,26 @@ app.post('/api/auth/kaspero', async (req, res) => {
 {
     "valid": true,
     "user": {
-        "id": 1234,
         "address": "kaspa:qz...",
         "walletType": "kasla",
         "merchantId": "kpm_abc123xy",
-        "site": "https://yoursite.com",
-        "isAdmin": false,
-        "profile": { }
+        "site": "https://yoursite.com"
     }
 }
 ```
 
-`site` is the origin the token was issued for. It is `null` for sites not served over https. `profile` holds the account record (for example `keystone_email` for Kasla users and `google_email` for Google users); treat everything in it as informational, its fields may change.
+| Field | Description |
+|-------|-------------|
+| `address` | The Kaspa address that signed in. Use it as the user's key in your database |
+| `walletType` | `kasware`, `kastle`, `kaspire` or `kasla` |
+| `merchantId` | The `data-merchant` value the sign-in was started with, or `null` |
+| `site` | The origin the token was issued for |
 
-**Email tokens** come from a different place. If you use your own signup and login endpoints, the token is whatever your endpoint returned and you verify it yourself. If you use the hosted option, verify with:
-
-```
-GET https://kasperopay.com/connect/auth/verify
-Authorization: Bearer <token>
-
-{ "success": true, "user": { "id": 57, "email": "user@example.com", "name": "..." } }
-```
+`site` is `null` when the page is not served over https, which in practice means local development. Keep the exact comparison in production and relax it only in your development build.
 
 The frontend then stores *your* session token and forgets the KasperoConnect one. This keeps your users signed in for as long as you decide, independent of their wallet extension.
+
+**What the token can do.** It is accepted by `GET /api/auth/verify` and by KasperoPay's payment endpoints, where every payment still needs the user's approval in their wallet. Every other KasperoPay endpoint answers `403`. There is nothing more to fetch with it.
 
 **Client-side decode (display only):**
 
@@ -400,56 +381,27 @@ function decodeJWT(token) {
 
 ## The Connect Result
 
-`onConnect`, `onLogin`, `onSignup` and the `kaspero-connect` event all receive the same wrapper:
+`onConnect` and the `kaspero-connect` event receive the same object:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `token` | string | JWT signed by KasperoConnect (or by your own endpoint, for email) |
-| `walletType` | string or null | `kasware`, `kastle`, `kaspire`, `kasla`, `email`; `null` for Google |
-| `user` | object | Depends on the method, see below |
+| `address` | string | The user's Kaspa address |
+| `walletType` | string | `kasware`, `kastle`, `kaspire` or `kasla` |
+| `token` | string | JWT signed by KasperoConnect |
+| `user` | object | `{ address }`. Kept so code written for earlier versions that reads `result.user.address` keeps working |
 
-`onSignup` additionally receives `formData`: the raw submitted fields, password included. Do not store it.
+### Example
 
-### Examples
-
-**Kasware / Kastle / Kaspire:**
 ```javascript
 {
-    token: "eyJ...",
-    walletType: "kasware",
-    user: { id: 1234, address: "kaspa:qz...", isNewUser: false, isAdmin: false, profile: { } }
-}
-```
-
-**Kasla (after the redirect):**
-```javascript
-{
-    token: "eyJ...",
+    address: "kaspa:qz...",
     walletType: "kasla",
-    user: { id: 1234, address: "kaspa:qz...", walletType: "kasla", merchantId: "kpm_abc123xy",
-            site: "https://yoursite.com", isAdmin: false, profile: { } }
-}
-```
-
-**Google (after the redirect):**
-```javascript
-{
     token: "eyJ...",
-    walletType: null,                 // identity only, no wallet
-    user: { id: 1234, address: null, walletType: "google", site: "https://yoursite.com", profile: { } }
+    user: { address: "kaspa:qz..." }
 }
 ```
 
-**Email:**
-```javascript
-{
-    token: "eyJ...",
-    walletType: "email",
-    user: { id: 57, email: "user@example.com", name: "..." }   // whatever the login endpoint returned
-}
-```
-
-The dependable parts are `token`, `walletType`, `user.id` and `user.address`. For anything that matters, use the server-side verification above rather than the object in the browser.
+The shape is the same for every method. For anything that matters, use the server-side verification above rather than the object in the browser.
 
 ---
 
@@ -461,9 +413,9 @@ The widget keeps its own connection state in the browser so returning users are 
 
 | Storage | Keys | Purpose |
 |---------|------|---------|
-| `localStorage` | `kc_token`, `kc_wallet`, `kc_user` | The Connect session |
-| `localStorage` | `kp_token`, `kp_wallet` | Shared with the KasperoPay widget for wallet sign-ins, so a connected user can pay without signing in again |
-| `sessionStorage` | `kc_oauth_state` | The one-time code for a Kasla or Google redirect in progress |
+| `localStorage` | `kc_token`, `kc_wallet`, `kc_user` | The Connect session. `kc_user` holds the address and nothing else |
+| `localStorage` | `kp_token`, `kp_wallet` | Shared with the KasperoPay widget, so a connected user can pay without signing in again |
+| `sessionStorage` | `kc_oauth_state` | The one-time code for a Kasla redirect in progress |
 
 That is the widget's memory, not your app's session. Store your own token, obtained from the exchange in [Verifying the Token](#verifying-the-token), and drive your UI from that:
 
@@ -486,7 +438,7 @@ if (localStorage.getItem('session_token')) {
 }
 ```
 
-> ⚠️ **Do not name your own keys `token` or `walletType`.** `KasperoConnect.disconnect()` and every fresh Kasla or Google sign-in also clear `localStorage` keys with exactly those names (they belonged to an older version of the widget).
+> ⚠️ **Do not name your own keys `token` or `walletType`.** `KasperoConnect.disconnect()` and every fresh Kasla sign-in also clear `localStorage` keys with exactly those names (they belonged to an older version of the widget).
 
 ### Logout
 
@@ -500,7 +452,7 @@ function logout() {
 
 ### Token Lifetime
 
-KasperoConnect tokens expire. Kasla and Google tokens last 7 days by default; hosted email tokens last 30 days. If you exchange the token for your own session right away, as shown above, the expiry only matters at sign-in.
+KasperoConnect tokens expire. Kasla tokens last 7 days by default. If you exchange the token for your own session right away, as shown above, the expiry only matters at sign-in.
 
 ### Wallet Switching
 
@@ -508,103 +460,30 @@ The widget does not watch the extension for account changes. If a user switches 
 
 ---
 
-## Email Sign-In and Custom Signup Fields
+## Upgrading from v1.3
 
-The email option shows a sign-in form with "Create account" and "Forgot password". Login always asks for email and password. Signup asks for the fields you configure.
+From 21 November 2026, KasperoConnect gives a site the wallet address and nothing else. This protects the people signing in: one account should not hand its email and profile to every site it visits.
 
-### Hosted (no backend needed)
+### What changed
 
-If you set no endpoints, accounts are kept in a customer list for your merchant ID at KasperoConnect. Passwords are stored as salted hashes. Verify the tokens with `GET /connect/auth/verify` (see [Verifying the Token](#verifying-the-token)).
+| Before | Now |
+|--------|-----|
+| `result.user` held `id`, `profile`, `isAdmin`, `isNewUser` and sometimes an email | `result.user` is `{ address }` |
+| `/api/auth/verify` returned `user.id` and `user.profile` | Returns `address`, `walletType`, `merchantId`, `site` |
+| Google and email sign-in | Removed. `google` and `email` in a wallet list are ignored |
+| Hosted customer list, `/connect/auth/*` | Closed. These endpoints answer `410` |
+| `data-signup-endpoint`, `data-signup-fields`, `data-login-endpoint`, `signup`, `login`, `onSignup`, `onLogin`, `KasperoConnect.FIELDS` | Removed and ignored |
+| A token worked across KasperoPay's API | A token works for verification and for payments only |
 
-Password reset emails are not sent for hosted accounts yet. If your users need password reset today, use your own endpoints.
+Every token issued before the change was cancelled, so each user signs in once more.
 
-### Your Own Endpoints
+### What to do
 
-```javascript
-window.KasperoConnect.connect({
-    wallets: ['google', 'email'],
-    signup: {
-        endpoint: 'https://yoursite.com/api/signup',
-        fields: [
-            { name: 'email', type: 'email', label: 'Email', required: true },
-            { name: 'password', type: 'password', label: 'Password', required: true, minLength: 8 },
-            { name: 'name', type: 'text', label: 'Full Name' },
-            { name: 'terms', type: 'checkbox', label: 'I agree to Terms', required: true }
-        ]
-    },
-    login: {
-        endpoint: 'https://yoursite.com/api/login',
-        forgotEndpoint: 'https://yoursite.com/api/forgot-password'
-    },
-    onConnect: function (result) { }
-});
-```
-
-Or with attributes:
-
-```html
-<div id="kaspero-connect-button"
-     data-wallets="email"
-     data-signup-endpoint="https://yoursite.com/api/signup"
-     data-signup-fields="email,password,password_confirm,name,terms"
-     data-login-endpoint="https://yoursite.com/api/login">
-</div>
-```
-
-**What the widget sends.** A JSON `POST` from the browser (so your endpoint needs CORS for your own site, and https):
-
-```json
-{
-    "email": "user@example.com",
-    "password": "...",
-    "name": "Ada",
-    "_merchant_id": "kpm_abc123xy",
-    "_mode": "signup"
-}
-```
-
-`_mode` is `signup` or `login`. The forgot-password endpoint receives `{ "email": "...", "_merchant_id": "..." }`.
-
-**What your endpoint returns.**
-
-```json
-{ "success": true, "token": "your-session-or-jwt", "user": { "id": 1, "email": "user@example.com" } }
-```
-
-```json
-{ "success": false, "error": "Email already registered" }
-```
-
-- With a `token`, the widget stores the session and fires `onConnect`.
-- Return a `user` object. If you leave it out, the widget uses the submitted fields without the password.
-- `error` (or `message`) is shown to the user in the form.
-- The forgot-password endpoint returns `{ "success": true, "message": "Check your email" }`.
-
-### Field Definitions
-
-| Property | Description |
-|----------|-------------|
-| `name` | Field name, used as the JSON key |
-| `type` | `text`, `email`, `password`, `tel`, `url`, `date`, `checkbox`, `select`, `textarea` |
-| `label` | Label shown above the field |
-| `required` | `true` to require it |
-| `placeholder` | Placeholder text |
-| `minLength`, `maxLength`, `pattern` | Browser validation |
-| `options` | For `select`: array of strings or `{ value, label }` |
-
-### Field Presets
-
-For `data-signup-fields`, or as ready-made objects in `KasperoConnect.FIELDS`:
-
-`email`, `password`, `password_confirm`, `name`, `first_name`, `last_name`, `phone`, `company`, `city`, `state`, `country`, `zip`, `address`, `birthday`, `username`, `website`, `bio`, `terms`, `newsletter`
-
-Including `password_confirm` makes the widget check that the two passwords match before submitting.
-
-```javascript
-signup: {
-    fields: [KasperoConnect.FIELDS.email, KasperoConnect.FIELDS.password, KasperoConnect.FIELDS.phone]
-}
-```
+1. **Key your users by wallet address.** If your database stored `user.id` from KasperoConnect, switch the lookup to `user.address`. Records that already hold the address keep matching.
+2. **Stop reading `user.email`, `user.id` and `user.profile`.** They are `undefined` now. If you need an email, ask for it on your own form after sign-in.
+3. **Remove `google` and `email` from `data-wallets`.** Leaving them in does no harm, but nothing is shown for them. Keep `kasla` so visitors without an extension can sign in.
+4. **Compare `user.site` exactly.** The example in [Verifying the Token](#verifying-the-token) now rejects a token unless `site` equals your origin.
+5. **If you used the email option,** your visitors can no longer sign in that way through KasperoConnect. Offer wallet sign-in, or run email login on your own backend. Contact us if you need the list of customers who signed up through the hosted option.
 
 ---
 
@@ -620,19 +499,43 @@ signup: {
 
 **Cause:** Extension wallets are shown only on desktop and only when the extension is installed. Kaspire also has to be enabled in your dashboard or listed in `data-wallets`.
 
-**Fix:** Offer `kasla`, `google` or `email` alongside the extensions so every visitor has an option.
+**Fix:** Offer `kasla` alongside the extensions so every visitor has an option.
 
-### Nothing happens after returning from Kasla or Google
+### Google or Email is not in the list
+
+**Cause:** KasperoConnect no longer offers them to sites.
+
+**Fix:** None needed. See [Upgrading from v1.3](#upgrading-from-v13).
+
+### `user.email`, `user.id` or `user.profile` is undefined
+
+**Cause:** KasperoConnect passes on the wallet address only.
+
+**Fix:** Use `result.address`, or `user.address` from `/api/auth/verify`, as the user's identity.
+
+### `403` "This sign-in is only valid for payments on the site it was made on."
+
+**Cause:** Your code sent the KasperoConnect token to a KasperoPay endpoint other than `GET /api/auth/verify`.
+
+**Fix:** Verify the token once, then use your own session. The token is not an API key.
+
+### Nothing happens after returning from Kasla
 
 **Cause:** Your `onConnect` was passed to `connect()` before the redirect. The page reloaded and the callback is gone.
 
-**Fix:** Register a `kaspero-connect` listener or set `KasperoConnect.onConnect` on page load. See [Redirect Sign-Ins](#redirect-sign-ins-kasla-google).
+**Fix:** Register a `kaspero-connect` listener or set `KasperoConnect.onConnect` on page load. See [Kasla Sign-In](#kasla-sign-in-redirect).
 
 ### "Sign-in could not be verified. Please try again."
 
-**Cause:** The return did not match a sign-in started in this browser tab. Common reasons: the user started in one tab and finished in another, took longer than 15 minutes, opened an old or shared link, or your own code changed the URL before the widget loaded.
+**Cause:** The return did not match a sign-in started in this browser tab. Common reasons: the user started in one tab and finished in another, opened an old or shared link, or your own code changed the URL before the widget loaded.
 
 **Fix:** Start the sign-in again from the button. If it happens every time, check that nothing on your page rewrites or strips the URL fragment (`#...`) before the widget script runs.
+
+### "Sign-in expired. Please try again."
+
+**Cause:** The Kasla sign-in took longer than 15 minutes, or the same sign-in was submitted twice.
+
+**Fix:** Start the sign-in again from the button.
 
 ### "Sign-in needs session storage..."
 
@@ -648,7 +551,7 @@ signup: {
 
 ### My own localStorage `token` disappears
 
-**Cause:** The widget clears keys named `token` and `walletType` on disconnect and on a new redirect sign-in.
+**Cause:** The widget clears keys named `token` and `walletType` on disconnect and on a new Kasla sign-in.
 
 **Fix:** Use a different key name, e.g. `session_token`.
 
@@ -677,27 +580,38 @@ function isTokenExpired(token) {
 - **KasperoConnect** = Authentication (sign in with wallet)
 - **KasperoPay** = Payments (accept Kaspa)
 
-Use Connect for user identity. Use Pay for transactions. On the same site they share wallet sessions: a user who connected with Kasware, Kastle, Kaspire or Kasla can pay without signing in again.
+Use Connect for user identity. Use Pay for transactions. On the same site they share sessions: a user who connected with Kasware, Kastle, Kaspire or Kasla can pay without signing in again.
 
-### Can users connect without a Kaspa wallet?
+### Can users connect without a browser extension?
 
-Yes! Google and Email authentication don't require a Kaspa wallet. Users get an identity without blockchain interaction. They cannot pay with that sign-in; KasperoPay asks for a wallet at checkout.
+Yes, with Kasla. A Kasla account works in any browser, including on a phone, and gives the user a Kaspa address. Every KasperoConnect sign-in is a wallet sign-in; there is no Google or email option.
+
+### How do I get the user's email?
+
+Ask for it yourself. KasperoConnect tells you which wallet signed in and nothing about the person behind it. Put an email field on your own page after sign-in and store it against the wallet address.
 
 ### Is the token secure?
 
-The JWT is signed by KasperoConnect servers. You cannot forge or modify a valid one, but your server cannot check the signature locally either, so verify it with `GET https://kasperopay.com/api/auth/verify` and check its `site` before trusting it (see [Verifying the Token](#verifying-the-token)).
+The JWT is signed by KasperoConnect servers. You cannot forge or modify a valid one, but your server cannot check the signature locally either, so verify it with `GET https://kasperopay.com/api/auth/verify` and check its `site` before trusting it (see [Verifying the Token](#verifying-the-token)). The token cannot read account data: outside verification and payments, KasperoPay refuses it.
 
-### How do I associate wallet users with email users?
+### Is the same wallet the same user on every site?
 
-If the same person connects via wallet and later via Google, they'll be separate identities. To link them, implement account linking in your own backend after the user is authenticated via both methods.
+Yes, the address is the same wherever that wallet signs in. Nothing else links the sign-ins: each site gets its own token and no shared account number.
 
-### What data do you store?
+### What data do you store, and what do you share?
 
-Wallet addresses, and email addresses for Kasla and Google users. For the hosted email option, also the email, a salted password hash, and the signup fields you asked for. We never see or store private keys.
+KasperoPay stores wallet addresses, and for Kasla users the email on their Kasla account. None of that is shared with sites. A site receives the wallet address, the wallet type and a token. We never see or store private keys.
 
 ---
 
 ## Changelog
+
+**v1.4** (November 2026)
+- **PRIVACY, BREAKING:** A site now receives the wallet address, the wallet type and a token. `user.id`, `user.profile`, `isAdmin`, `isNewUser` and any email are gone from the connect result and from `GET /api/auth/verify`
+- **SECURITY, BREAKING:** Tokens are limited. They are accepted for verification and for KasperoPay payments, and refused by every other endpoint. Each token names the site it was issued for. All earlier tokens were cancelled on 21 November 2026
+- **BREAKING:** Google and email sign-in are no longer offered to sites. The hosted customer list is closed and `/connect/auth/*` answers `410`. Removed `data-signup-endpoint`, `data-signup-fields`, `data-login-endpoint`, the `signup` and `login` options, `onSignup`, `onLogin` and `KasperoConnect.FIELDS`
+- **NEW:** `result.address` at the top level of the connect result
+- **DOCS:** Added [What Your Site Receives](#what-your-site-receives) and [Upgrading from v1.3](#upgrading-from-v13). The verification example compares `site` exactly and keys users by address
 
 **v1.3** (November 2026)
 - **SECURITY:** Kasla and Google sign-ins now return in the URL fragment with a one-time state check, and the token is confirmed with the server before the session is saved. Tokens in the query string are refused
@@ -722,15 +636,14 @@ Wallet addresses, and email addresses for Kasla and Google users. For the hosted
 
 **v1.1** (January 2026)
 - **NEW:** Dedicated Connect widget (separate from Pay widget)
-- **NEW:** Google OAuth authentication
-- **NEW:** Email magic link authentication (now email and password, see v1.3)
+- **NEW:** Google OAuth authentication (removed for sites in v1.4)
+- **NEW:** Email magic link authentication (removed for sites in v1.4)
 - **NEW:** `data-button-text` attribute for custom button text
 - **NEW:** `data-theme` attribute for light/dark mode
-- **NEW:** Custom signup fields support
+- **NEW:** Custom signup fields support (removed in v1.4)
 - **IMPROVED:** Mobile-friendly auth flow
 
 **v1.0** (January 2026)
 - Initial release (as part of KasperoPay)
 - Kasware, Kastle, Kasla wallet support
 - Basic connect/disconnect API
-
