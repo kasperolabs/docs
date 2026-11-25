@@ -17,6 +17,7 @@ Goals:
 - Liveness from incentives: the fee pays the miner who includes the trigger, and anyone can broadcast it at no cost, the beneficiary included.
 - Escalation: a bounty that climbs until it clears at any fee level, up to a cap.
 - One audited template family that any scanner recognizes from on-chain data alone.
+- Durability: records outlive pruning through a self-funded beacon, so a creator can deploy a year ahead and shut down.
 - Oracle-ready: conditions with deadlines plug in later as new templates under the same record format.
 
 Non-goals for v0.1:
@@ -37,6 +38,7 @@ Only the creator ever signs anything. Broadcasting and mining are separate roles
 | Broadcaster | Builds the trigger spend from public data and submits it: the beneficiary, the creator's bot, the Studio, Kasla, a pool | None | No; the fee goes to the miner |
 | Miner or pool | Includes the spend; its block's coinbase collects the fee | Its normal coinbase address | Yes, the bounty |
 | Beneficiary | Receives the committed output | None | The payout |
+| Beacon | A covenant that republishes the creator's records every period, paying the fee from its own balance | None | No; the fee goes to the miner |
 
 The trigger spend is not someone else's signed transaction being relayed. The trigger branch has no signature check. Anyone rebuilds the spend from the funding outpoint, the template and the params, chooses its lock\_time, and leaves the bounty as the fee.
 
@@ -94,9 +96,12 @@ Records are hints, never trusted on their own, so the channel doesn't matter:
 
 - **Inline:** the funding tx's payload. Best when the Studio builds the funding tx.
 - **Detached:** any later tx's payload, sent by anyone, the beneficiary included. This covers wallets that can't attach a payload, such as a Kasware `sendKaspa` funding.
+- **Beacon:** a covenant that republishes the records every period (see Record durability). This is the channel that survives pruning.
 - **Off-chain:** the same record bytes in a `.ksm` file or served by an API.
 
-A T1 inline record is about 150 bytes, which costs about 150 grams of compute mass, or roughly 0.00015 KAS at the relay floor. Spam costs its sender the same.
+Ordinary nodes prune transaction data after about 30 hours. Inline and detached records are therefore visible on chain for about a day; after that, only scanners that indexed them still know them. A covenant whose N is more than a day away should be carried by a beacon.
+
+A T1 inline record is about 150 bytes. For the relay fee, payload bytes cost about 2 grams each: transient mass counts 4 grams per byte and is weighted at half against compute mass. A record therefore costs about 300 grams, or roughly 0.0003 KAS. Spam costs its sender the same.
 
 ## Templates T1 and T1-N: TIME\_AFTER, one-shot
 
@@ -179,7 +184,7 @@ Once a trigger is broadcast, every pool's template can include it, and the first
 
 ### Sizing
 
-The relay floor is 100 sompi per gram of max(compute, transient) mass. A T1 trigger is estimated at 1,000 to 3,000 grams, so about 0.001 to 0.003 KAS (to be measured on testnet). At about 10 DAA ticks per second, K sompi per tick adds K × 36,000 sompi an hour. BMAX divided by the trigger's mass is the highest fee rate the trigger can ever clear.
+The relay floor is 100 sompi per gram of max(compute mass, transient mass weighted at half). A T1 trigger is estimated at 1,000 to 3,000 grams, so about 0.001 to 0.003 KAS (to be measured on testnet). At about 10 DAA ticks per second, K sompi per tick adds K × 36,000 sompi an hour. BMAX divided by the trigger's mass is the highest fee rate the trigger can ever clear.
 
 | Preset | B0 | K | Climb | BMAX | Cap reached after N | Clears up to, at 2,000 g |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -196,7 +201,7 @@ Above L\* = N + ceil((BMAX − B0) / K) the bounty stops growing (L\* = N when K
 
 A scanner is a small keyless service beside a kaspad node. For a pool it feeds the pool's own block templates, which is the native CATMA path. The beneficiary's wallet, the Studio, Kasla or a creator's bot can run one too; they earn nothing, but they make sure the trigger reaches the mempool. The Studio should run a public one from day one, so CATMA works before any pool adopts it.
 
-1. **Index.** Follow accepted transactions through the node's virtual-chain notifications and parse payloads that start with `CATMA`. Accept off-chain records too. For each record, rebuild header and code from the registry, hash it and compare it with the output's script. Check the creation rules. Store the outpoint, template, params, N and L\*.
+1. **Index.** On startup, read every block the node still holds (about the last 30 hours), so the latest republish of every live beacon is found. Then follow accepted transactions through the node's virtual-chain notifications and parse payloads that start with `CATMA`. Accept off-chain records too. For each record, rebuild header and code from the registry, hash it and compare it with the output's script. Check the creation rules. Store the outpoint, template, params, N and L\*.
 2. **Track.** Drop an entry as soon as its outpoint is spent in an accepted transaction, using UTXO-change notifications. Keep the rest in a queue ordered by N.
 3. **Wait.** An entry is eligible once the virtual DAA score passes N.
 4. **Build.** Set lock\_time L = min(virtual DAA − 1, L\*). Each CATMA input gets sequence 0, sigOpCount 0 and the signature script from the T1 table. Output i is the beneficiary, worth input i minus bounty(L). Eligible triggers can share one transaction, each paired by index.
@@ -204,7 +209,96 @@ A scanner is a small keyless service beside a kaspad node. For a pool it feeds t
 6. **Submit.** Send to the scanner's own node. If the mempool already holds a spend of the same outpoint, that is a pending trigger, not a spend. Rebuild with the current L and submit it as a replacement (`submitTransactionReplacement`) when it pays more. Drop the entry only at step 2.
 7. **Refresh.** A trigger still pending after fees rose is rebuilt with a fresh L and replaced the same way.
 
+A scanner also republishes beacons: when a beacon's coin is P old, it builds the republish spend described below and submits it the same way.
+
 A scanner holds no funds and signs nothing, so nothing on it can be stolen. A compromised scanner can at worst fire triggers that were already eligible, into their committed outputs.
+
+## Record durability: the beacon
+
+A beacon keeps a creator's records on chain for as long as it is funded, so every covenant can still be found and fired after the creator is gone. It is a covenant that anyone may spend once every period P, but only to republish the committed records in the payload and pay itself back, minus a capped fee for the miner.
+
+### Why a covenant can't simply hold the list
+
+The UTXO set keeps a P2SH coin only as the 32-byte hash of its script. The script and any data in it appear only in the transaction that spends the coin, and nodes prune that after about 30 hours. A covenant can commit to records, but it can't make the chain store them. The beacon solves this by making the chain see them again before they are pruned, every period, paid for by the beacon's own balance.
+
+### Template B1: beacon
+
+| Param | Encoding | Meaning | Creation rule |
+| --- | --- | --- | --- |
+| RETURN\_SPK | 36 or 37 bytes | Where the leftover goes when the beacon is retired | Standard class |
+| RECORDS\_HASH | 32 bytes | Blake2b-256 of the exact records payload | The payload holds detached records only |
+| FEE\_CAP | 8-byte int, sompi | Most a republish may pay as fee | About 2 times the relay fee for the republish's mass |
+| P | 8-byte int, DAA ticks | Least age of the coin between republishes | Well under the pruning window: 720,000 (about 20 hours) leaves 10 hours of margin |
+| END | 8-byte int, DAA score | Earliest score at which the beacon may be retired | After the last N it carries, plus a margin |
+
+**Republish branch (selector 1):**
+
+1. The coin is at least P DAA old (CSV), so it can republish at most once per period.
+2. Output i continues this same beacon: its script equals input i's script.
+3. Output i is at least input i's amount minus FEE\_CAP.
+4. The transaction's payload hashes to RECORDS\_HASH.
+
+**Retire branch (selector 0):**
+
+1. `tx.lock_time` is at least END (CLTV).
+2. Output i pays RETURN\_SPK, at least input i's amount minus FEE\_CAP.
+
+Neither branch has a signature check. The beacon's script never changes, so it needs no state proof.
+
+```
+5 OpRoll                                   // selector up from under the five params
+OpIf                                       // selector 1: republish
+  OpDrop                                   // drop END
+  OpCheckSequenceVerify                    // coin is at least P old; CSV pops P
+  OpTxInputIndex OpTxOutputAmount
+  OpTxInputIndex OpTxInputAmount
+  OpRot OpSub                              // floor = input i - FEE_CAP
+  OpGreaterThanOrEqual OpVerify            // output i >= floor
+  0 OpTxPayloadLen OpTxPayloadSubstr OpBlake2b
+  OpEqualVerify                            // payload hashes to RECORDS_HASH
+  OpDrop                                   // drop RETURN_SPK
+  OpTxInputIndex OpTxOutputSpk
+  OpTxInputIndex OpTxInputSpk OpEqual      // output i continues this beacon
+OpElse                                     // selector 0: retire
+  OpCheckLockTimeVerify                    // lock_time >= END; CLTV pops END
+  OpDrop OpNip                             // drop P and RECORDS_HASH
+  OpTxInputIndex OpTxOutputAmount
+  OpTxInputIndex OpTxInputAmount
+  OpRot OpSub                              // floor = input i - FEE_CAP
+  OpGreaterThanOrEqual OpVerify            // output i >= floor
+  OpTxInputIndex OpTxOutputSpk OpEqual     // output i pays RETURN_SPK
+OpEndIf
+```
+
+The header leaves the stack as RETURN\_SPK, RECORDS\_HASH, FEE\_CAP, P, END, with END on top. To be checked on the engine before audit.
+
+| Spend | Signature script | Input sequence | lock\_time | sigOpCount |
+| --- | --- | --- | --- | --- |
+| Republish | `OP_1`, then the redeem script | P | 0 | 0 |
+| Retire | `OP_0`, then the redeem script | 0 | at least END | 0 |
+
+### Life of a beacon
+
+1. **Create.** The creator's funding transaction pays the beacon coin. Its payload is one CATMA blob holding the beacon's own inline record plus the detached records it will carry.
+2. **Republish.** Every period, any scanner spends the beacon into itself with the records blob as payload. The miner keeps up to FEE\_CAP. The spend reveals the beacon's script, so from the first republish on the beacon describes itself.
+3. **Retire.** From END on, anyone may pay the leftover to RETURN\_SPK. Until someone does, republishing simply continues.
+
+A scanner starting up at any time finds the latest republish within the last 30 hours of blocks, and with it every record and the beacon itself. The creator needs no server, repo or API.
+
+### One beacon per creator
+
+Each creator, or each batch, deploys its own beacon; "registering" means deploying one. A single shared beacon would need a state change for every registration, its payload would grow without limit, and anyone could spam it to raise every other registrant's cost.
+
+### Cost
+
+These are estimates, to be measured on testnet. A republish costs about 2 grams per byte for the relay fee, at 100 sompi per gram. A detached T1 record is about 176 bytes. The transaction limit (1,000,000 grams of transient mass) would allow about 1,400 records, but a beacon should stay near 140 records (about 25 KB) so one republish takes only a small slice of a block.
+
+| Records | Payload | Relay floor per republish | Per year at P = 20 h, FEE\_CAP = 2 × floor |
+| --- | --- | --- | --- |
+| 10 | about 1.8 KB | about 0.004 KAS | up to about 4 KAS |
+| 100 | about 17.6 KB | about 0.036 KAS | up to about 31 KAS |
+
+All of it goes to miners. A flat FEE\_CAP means a scanner that is also a miner will take the full cap, so FEE\_CAP should sit close to cost. An escalating republish fee, measured from the coin's DAA score with `OpTxInputDaaScore`, is a possible B2.
 
 ## Recipes on T1
 
@@ -270,6 +364,11 @@ The trigger branch can do one thing, at one time, into one place, and can lose a
 | Template bug | Immutable audited IDs; red-team with kaspa-redteam before the registry | Systemic: every covenant on that ID at once |
 | Parallel blocks include the same spend | The DAG accepts one; the other copy is ignored | Nothing |
 | DAA score vs wall clock | Release is defined in DAA score | Wall-clock dates are estimates; show them as estimates |
+| Record pruned before N | A beacon republishes it every P, inside the 30-hour window | Nothing while the beacon is funded |
+| Beacon runs dry | Fund it to past the last N it carries; FEE\_CAP near cost | Scanners that indexed the records still fire them; new scanners can't find them |
+| Beacon payload swapped or trimmed | The republish branch checks the payload's hash | Nothing |
+| Beacon drained by fees | At most FEE\_CAP per spend, at most one spend per P | Nothing beyond the budgeted fees |
+| Beacon late in congestion | FEE\_CAP above the usual floor; P well under 30 hours | A gap in on-chain visibility; scanners already running are unaffected |
 | Expecting a deadline | Script can't say "not after" | Use an oracle template with a signed event score |
 
 ### Invariants every audit must prove
@@ -279,6 +378,8 @@ The trigger branch can do one thing, at one time, into one place, and can lose a
 3. The value a trigger takes from any one covenant never exceeds BMAX.
 4. Validity depends only on on-chain data, never on the record or the scanner.
 5. For every DAA score from N on, there is a lock\_time that makes the trigger valid without overflow.
+6. A beacon's value leaves only into its own continuation or, from END on, to RETURN\_SPK, and each spend pays at most FEE\_CAP.
+7. A beacon republish succeeds only with the committed records as the payload, and at most once per P.
 
 ## Checked against rusty-kaspa master
 
@@ -292,9 +393,13 @@ Read at commit 68bd2e9 (Nov 23, 2026). These answer v0's open questions by readi
 | Clean stack | Exactly one item must remain | [lib.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/crypto/txscript/src/lib.rs) |
 | Lock\_time margin | Final when lock\_time < the virtual DAA score (mempool) or the block's DAA score (block), so virtual DAA − 1 works | [tx\_validation\_in\_header\_context.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/consensus/src/processes/transaction_validator/tx_validation_in_header_context.rs) |
 | Mempool standardness | No push-only rule, no dust rule, no fee ceiling. Outputs must be a standard class with a known version; a P2SH input may have at most 15 sig ops | [check\_transaction\_standard.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/mining/src/mempool/check_transaction_standard.rs) |
-| Relay floor | 100,000 sompi per kg (100 sompi/gram) of max(compute, transient) mass | [mempool/config.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/mining/src/mempool/config.rs) |
+| Relay floor | 100,000 sompi per kg (100 sompi/gram) of max(compute mass, normalized transient mass). Transient mass is 4 grams per byte, normalized by 500,000 / 1,000,000 = 0.5 | [mempool/config.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/mining/src/mempool/config.rs), [check\_transaction\_standard.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/mining/src/mempool/check_transaction_standard.rs), [mass/mod.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/consensus/core/src/mass/mod.rs) |
+| Mass limits | Per block and per transaction: compute 500,000, storage 500,000, transient 1,000,000 grams | [params.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/consensus/core/src/config/params.rs) |
+| Pruning | Transaction data is kept for at least 30 hours (`PRUNING_DURATION` = 108,000 seconds) | [constants.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/consensus/core/src/config/constants.rs), [bps.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/consensus/core/src/config/bps.rs) |
+| Payload opcodes | `OpTxPayloadLen` and `OpTxPayloadSubstr` exist; a script element may be up to 1,000,000 bytes post-Toccata, so a whole payload can be hashed | [opcodes/mod.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/crypto/txscript/src/opcodes/mod.rs), [lib.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/crypto/txscript/src/lib.rs) |
+| CSV semantics | Pops its operand; compares it with the input's sequence, which consensus enforces as the coin's least age in DAA | [opcodes/mod.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/crypto/txscript/src/opcodes/mod.rs) |
 | Replace by fee | The mempool supports replacement (RbfPolicy) | [replace\_by\_fee.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/mining/src/mempool/replace_by_fee.rs) |
-| Payload cost | Counted in the serialized size behind compute mass | [mass/mod.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/consensus/core/src/mass/mod.rs) |
+| Payload cost | Counted in the serialized size behind both compute mass (1 gram per byte) and transient mass (4 grams per byte) | [mass/mod.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/consensus/core/src/mass/mod.rs) |
 | `OpTxOutputSpk` bytes | 2-byte version, then the script: P2PK `0000 20<key> ac`, P2SH `0000 aa20<hash> 87` | Studio mainnet tests, Oct 4, 2026 |
 
 ## Open questions for testnet
@@ -303,6 +408,8 @@ These decide the numbers in this spec, not its design.
 
 - [ ] Measure the real mass of a T1 trigger, one alone and a batch of two, including Toccata's compute budget. This sets the B0 floor.
 - [ ] Run T1 and T1-N end to end: a trigger at N, a refused early trigger, a refused redirected output, a refused oversize fee, an owner escape, a batch of two, an extra output paying a submitter.
+- [ ] Run B1 end to end: create with a records blob, a republish at P, a refused early republish, a refused payload change, a refused fee above FEE\_CAP, a retire after END, a refused retire before END. Measure the republish mass for 10 and 100 records.
+- [ ] Confirm that a scanner starting cold finds a live beacon from the blocks its node holds.
 - [ ] Confirm that 8-byte header integers work in `OpMul`, `OpAdd` and `OpMin` as well as in CLTV.
 - [ ] Check whether a replacement spreads to peers over P2P, or only reaches the node it was submitted to.
 - [ ] Decide whether funding outputs should carry a covenant ID binding, so indexers can follow them by ID, and confirm a bound coin can still be paid to a plain beneficiary.
@@ -323,4 +430,6 @@ These decide the numbers in this spec, not its design.
 | T2 TIME\_WINDOW | Pure time template | Moved under oracles | Script can't enforce "not after"; only a signed timestamp can |
 | T3, T4 | Later templates | Recipes on T1 | A ladder of T1s and an owner re-roll cover recurring payments and heartbeats |
 | Scanner conflicts | Drop on any conflict | Replace a pending conflict by fee | A trigger parked in the mempool is not a spend |
+| Record durability | Funding payload only | A self-funded beacon (B1) republishes the records every period | Nodes prune transaction data after about 30 hours; a year-ahead covenant must stay findable after its creator is gone |
+
 
