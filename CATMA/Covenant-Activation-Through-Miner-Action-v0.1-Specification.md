@@ -10,6 +10,8 @@ The capped leftover is the transaction fee, so the miner whose block includes th
 
 For example, a tenant locks 100 KAS for the landlord at the DAA score of the 1st of the month. At that score a miner executes the payment and keeps the bounty as its fee.
 
+Kaspa can already do this. CATMA adds no opcode and no service; it is a convention for using what L1 already has: a time lock (CLTV), Toccata's transaction introspection opcodes, transaction payloads and the transaction fee. Any wallet, app or node can implement it.
+
 Goals:
 
 - Self-execution: covenants that would otherwise need a manual trigger execute once their condition is met, paid for by their own bounty.
@@ -35,7 +37,7 @@ Only the creator ever signs anything. Broadcasting and mining are separate roles
 | --- | --- | --- | --- |
 | Creator | Funds the covenant, picks a template and params, publishes the record | Funding key; owner key for T1's escape | No |
 | Trigger covenant | P2SH UTXO that enforces the time, the committed output and the bounty cap | None | No |
-| Broadcaster | Builds the trigger spend from public data and submits it: the beneficiary, the creator's bot, the Studio, Kasla, a pool | None | No; the fee goes to the miner |
+| Broadcaster | Builds the trigger spend from public data and submits it: the beneficiary, the creator's bot, a wallet, a pool | None | No; the fee goes to the miner |
 | Miner or pool | Includes the spend; its block's coinbase collects the fee | Its normal coinbase address | Yes, the bounty |
 | Beneficiary | Receives the committed output | None | The payout |
 | Beacon | A covenant that republishes the creator's records every period, paying the fee from its own balance | None | No; the fee goes to the miner |
@@ -54,7 +56,7 @@ A CATMA redeem script is a param header followed by the template's code. A P2SH 
 
 ### Template ID
 
-The template ID is the KCC-1 template hash with an empty prefix, the same rule the Studio's kcc1.js and verifier already use:
+The template ID is the KCC-1 template hash with an empty prefix, as defined in KCC-1, the same rule KCC-20 covenants use:
 
 ```latex
 \text{template\_id} = \mathrm{BLAKE3}\big(\mathrm{le64}(0) \,\|\, \mathrm{le64}(\mathrm{len}(\text{code})) \,\|\, \text{code}\big)
@@ -62,7 +64,7 @@ The template ID is the KCC-1 template hash with an empty prefix, the same rule t
 
 The redeem script is header followed by code. It matches the output when Blake2b-256 of that script equals the hash inside the output's `aa20<hash>87`.
 
-Template IDs are immutable. A bug fix is a new ID, never an edit. The registry (the Studio's covenant registry) lists each audited ID with its code, its header fields, its condition and its audit trail. Scanners act only on IDs they have reviewed.
+Template IDs are immutable. A bug fix is a new ID, never an edit. A public registry lists each audited ID with its code, its header fields, its condition and its audit trail. Scanners act only on IDs they have reviewed.
 
 ### Header encoding
 
@@ -94,10 +96,10 @@ The last six fields repeat per record, so one funding tx can create a ladder of 
 
 Records are hints, never trusted on their own, so the channel doesn't matter:
 
-- **Inline:** the funding tx's payload. Best when the Studio builds the funding tx.
-- **Detached:** any later tx's payload, sent by anyone, the beneficiary included. This covers wallets that can't attach a payload, such as a Kasware `sendKaspa` funding.
+- **Inline:** the funding tx's payload. Best when the creator's wallet or app builds the funding tx.
+- **Detached:** any later tx's payload, sent by anyone, the beneficiary included. This covers wallets that can't attach a payload, such as a plain send from a browser wallet.
 - **Beacon:** a covenant that republishes the records every period (see Record durability). This is the channel that survives pruning.
-- **Off-chain:** the same record bytes in a `.ksm` file or served by an API.
+- **Off-chain:** the same record bytes in a file shared with the beneficiary, or served by an API.
 
 Ordinary nodes prune transaction data after about 30 hours. Inline and detached records are therefore visible on chain for about a day; after that, only scanners that indexed them still know them. A covenant whose N is more than a day away should be carried by a beacon.
 
@@ -199,7 +201,7 @@ Above L\* = N + ceil((BMAX − B0) / K) the bounty stops growing (L\* = N when K
 
 ## Broadcaster and scanner behavior
 
-A scanner is a small keyless service beside a kaspad node. For a pool it feeds the pool's own block templates, which is the native CATMA path. The beneficiary's wallet, the Studio, Kasla or a creator's bot can run one too; they earn nothing, but they make sure the trigger reaches the mempool. The Studio should run a public one from day one, so CATMA works before any pool adopts it.
+A scanner is a small keyless service beside a kaspad node. For a pool it feeds the pool's own block templates, which is the native CATMA path. The beneficiary's wallet, any app that creates covenants, or a creator's bot can run one too; they earn nothing, but they make sure the trigger reaches the mempool. Anyone can run a public one, so CATMA works before any pool adopts it.
 
 1. **Index.** On startup, read every block the node still holds (about the last 30 hours), so the latest republish of every live beacon is found. Then follow accepted transactions through the node's virtual-chain notifications and parse payloads that start with `CATMA`. Accept off-chain records too. For each record, rebuild header and code from the registry, hash it and compare it with the output's script. Check the creation rules. Store the outpoint, template, params, N and L\*.
 2. **Track.** Drop an entry as soon as its outpoint is spent in an accepted transaction, using UTXO-change notifications. Keep the rest in a queue ordered by N.
@@ -313,7 +315,7 @@ The uses v0 gave to T3 and T4 are built from T1 coins, so v0.1 ships one templat
 | Staged heirs | A ladder of T1 | Different beneficiaries at different N, each re-rolled together |
 | Chained release | T1 into a covenant | BENEFICIARY\_SPK is another covenant's P2SH: a vault, an escrow, another CATMA |
 
-Storage mass limits how many small rungs fit in one funding tx. Larger rungs or several funding txs avoid it; the Studio should measure before offering a ladder UI.
+Storage mass limits how many small rungs fit in one funding tx. Larger rungs or several funding txs avoid it; a creator should measure before building a ladder.
 
 ### When a new template is worth it
 
@@ -361,7 +363,7 @@ The trigger branch can do one thing, at one time, into one place, and can lose a
 | Never triggered | The beneficiary can broadcast for free; escalation; BMAX; T1's escape | BMAX below a long fee spike delays T1-N until fees fall. Funds wait, they aren't lost |
 | Beneficiary surprised by a revocation | T1 is labeled revocable until paid; T1-N exists | A UI that hides the label |
 | Owner key stolen (T1) | None: the escape pays anywhere | Use T1-N, or a restricted-escape template later |
-| Template bug | Immutable audited IDs; red-team with kaspa-redteam before the registry | Systemic: every covenant on that ID at once |
+| Template bug | Immutable audited IDs; red-team each template before it enters the registry | Systemic: every covenant on that ID at once |
 | Parallel blocks include the same spend | The DAG accepts one; the other copy is ignored | Nothing |
 | DAA score vs wall clock | Release is defined in DAA score | Wall-clock dates are estimates; show them as estimates |
 | Record pruned before N | A beacon republishes it every P, inside the 30-hour window | Nothing while the beacon is funded |
@@ -400,7 +402,7 @@ Read at commit 68bd2e9 (Nov 23, 2026). These answer v0's open questions by readi
 | CSV semantics | Pops its operand; compares it with the input's sequence, which consensus enforces as the coin's least age in DAA | [opcodes/mod.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/crypto/txscript/src/opcodes/mod.rs) |
 | Replace by fee | The mempool supports replacement (RbfPolicy) | [replace\_by\_fee.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/mining/src/mempool/replace_by_fee.rs) |
 | Payload cost | Counted in the serialized size behind both compute mass (1 gram per byte) and transient mass (4 grams per byte) | [mass/mod.rs](https://github.com/kaspanet/rusty-kaspa/blob/68bd2e91cddbdcdca5e59357344c7e26f2d6d97b/consensus/core/src/mass/mod.rs) |
-| `OpTxOutputSpk` bytes | 2-byte version, then the script: P2PK `0000 20<key> ac`, P2SH `0000 aa20<hash> 87` | Studio mainnet tests, Oct 4, 2026 |
+| `OpTxOutputSpk` bytes | 2-byte version, then the script: P2PK `0000 20<key> ac`, P2SH `0000 aa20<hash> 87` | Observed on mainnet covenant spends, Oct 2026 |
 
 ## Open questions for testnet
 
@@ -423,13 +425,11 @@ These decide the numbers in this spec, not its design.
 | Liveness | Miners and pools scan | Anyone broadcasts, the beneficiary first; miners collect the fee | The trigger is keyless and the bounty pays the fee, so broadcasting costs nothing |
 | Output rule | Exactly 1 input, 1 output | Output at my own input index pays the beneficiary | Batching comes free; T1-A and T1-B are folded in |
 | Owner escape | Always present | T1 has it; T1-N has none | A beneficiary needs a version that can't be revoked |
-| Template ID | New Blake2b rule | KCC-1 template hash | One rule across the Studio verifier, KCC-20 and CATMA |
+| Template ID | New Blake2b rule | KCC-1 template hash | One rule for KCC-20 and CATMA, so existing verifiers can check both |
 | Params | TLV | Fixed push header at the start of the script | Building the script is concatenation; no parser per template |
-| Record channel | Funding tx payload only | Payload, a separate announce tx, or off-chain | Wallets like Kasware can't attach a payload; the hash check makes the channel irrelevant |
+| Record channel | Funding tx payload only | Payload, a separate announce tx, or off-chain | Some browser wallets can't attach a payload; the hash check makes the channel irrelevant |
 | Bounty example | B0 0.6 KAS | B0 0.01 KAS | Competition sets the price; 0.6 KAS is about 300 times the relay floor |
 | T2 TIME\_WINDOW | Pure time template | Moved under oracles | Script can't enforce "not after"; only a signed timestamp can |
 | T3, T4 | Later templates | Recipes on T1 | A ladder of T1s and an owner re-roll cover recurring payments and heartbeats |
 | Scanner conflicts | Drop on any conflict | Replace a pending conflict by fee | A trigger parked in the mempool is not a spend |
 | Record durability | Funding payload only | A self-funded beacon (B1) republishes the records every period | Nodes prune transaction data after about 30 hours; a year-ahead covenant must stay findable after its creator is gone |
-
-
