@@ -171,7 +171,7 @@ The selector is `OP_1` or `OP_0`, never another encoding. A trigger input with s
 
 ## Bounty
 
-The bounty is the fee, and competition, not the creator's generosity, sets what is actually paid. A creator should set B0 near cost and let K and BMAX carry the trigger through congestion.
+The bounty is the fee. What is actually paid is the bounty at the moment the spend first becomes public: from then on every miner can include it, and none gains by waiting. A creator should set B0 near cost and let K and BMAX carry the trigger through congestion.
 
 ### The fee is the bounty
 
@@ -180,9 +180,11 @@ The bounty is the fee, and competition, not the creator's generosity, sets what 
 
 ### Escalation
 
-The mempool accepts a transaction only when its lock\_time is below the virtual DAA score, and a block only when it's below that block's DAA score. So `OpTxLockTime` is a lower bound on "now" that the spender chooses. The spender wants it as high as possible, because the bounty grows with it. That makes the trigger a Dutch auction that finds its own price at any fee level.
+The mempool accepts a transaction only when its lock\_time is below the virtual DAA score, and a block only when it's below that block's DAA score. So `OpTxLockTime` is a lower bound on "now" that the spender chooses. The spender wants it as high as possible, because the bounty grows with it. That makes the bounty a time-escalating offer: it eventually clears at any fee level, and the price paid is the bounty when the spend first goes public.
 
-Once a trigger is broadcast, every pool's template can include it, and the first block accepted wins, so the bounty lands with miners in proportion to hashrate. A pool's own scanner earns only its hashrate share, unless the pool keeps the spend out of the public mempool, which takes a node change. Either way the trigger fires.
+Once a trigger is broadcast, every pool's template can include it, and the first block accepted wins, so the bounty lands with miners in proportion to hashrate. A pool's own scanner earns only its hashrate share, unless the pool keeps the spend out of the public mempool, which takes a node change.
+
+Permissionless execution is not guaranteed execution: it needs at least one broadcaster. Pools have a free-rider reason to wait for someone else, and a sole scanner keeping the spend private can wait for a higher bounty, up to BMAX. The beneficiary has its own reason to broadcast at N at no cost, so a beneficiary's wallet should do it by default.
 
 ### Sizing
 
@@ -193,7 +195,7 @@ The relay floor is 100 sompi per gram of max(compute mass, transient mass weight
 | Everyday | 0.01 KAS | 250 sompi/tick | 0.09 KAS/h | 1 KAS | about 11 h | 500 × floor |
 | Congestion-proof | 0.01 KAS | 1,000 sompi/tick | 0.36 KAS/h | 5 KAS | about 14 h | 2,500 × floor |
 
-With a broadcaster watching at N and normal fees, the bounty actually paid is close to B0. A creator who wants to tip miners on purpose raises B0 and knows it's a gift.
+With a broadcaster watching at N and normal fees, the bounty actually paid is close to B0. With nobody broadcasting, every hour of delay adds K × 36,000 sompi, up to BMAX: after 5 hours, about 0.46 KAS on Everyday and 1.81 KAS on Congestion-proof. A creator who wants to tip miners on purpose raises B0 and knows it's a gift.
 
 ### Lock\_time cap
 
@@ -213,7 +215,7 @@ A scanner is a small keyless service beside a kaspad node. For a pool it feeds t
 
 A scanner also republishes beacons: when a beacon's coin is P old, it builds the republish spend described below and submits it the same way.
 
-A scanner holds no funds and signs nothing, so nothing on it can be stolen. A compromised scanner can at worst fire triggers that were already eligible, into their committed outputs.
+A scanner holds no funds and signs nothing, so nothing on it can be stolen. A compromised scanner can't redirect a payout. At worst it fires eligible triggers into their committed outputs, or withholds them so the bounty climbs, which costs the creator up to BMAX per covenant when no other broadcaster is watching.
 
 ## Record durability: the beacon
 
@@ -340,9 +342,9 @@ A real deadline needs a time the spender can't choose: a score inside a message 
 **ORACLE\_EVENT (reserved).**
 
 - **Params:** oracle pubkey, feed ID, predicate (comparison and threshold), and optionally a window \[N, M\].
-- **Witness:** an oracle-signed message of feed ID, value, event DAA score and expiry, checked with `checkMsgSig` (BIP340 over a 32-byte Blake2b-256 digest, x-only key).
+- **Witness:** an oracle-signed message of feed ID, value and event DAA score, checked with `checkMsgSig` (BIP340 over a 32-byte Blake2b-256 digest, x-only key).
 - **Window:** the script checks N ≤ event score ≤ M from the signed message, so "the event happened in time" is enforceable.
-- **Freshness:** comes from the message, either event semantics ("crossed X at score d") or a signed expiry. It must never come from lock\_time, or a spender could choose a low lock\_time and replay yesterday's price.
+- **Freshness:** only event semantics work: the message says what happened and at which score ("crossed X at score d"), and the script checks that score against the window. A signed expiry does not work, because checking it needs an upper bound on "now" and script only has a lower bound, lock\_time. For the same reason freshness must never come from lock\_time, or a spender could choose a low lock\_time and replay yesterday's price. A condition like "the price is above X right now" can't be expressed; "the price crossed X between N and M" can.
 
 The registry gives each oracle template its own condition entry; the record format doesn't change.
 
@@ -355,7 +357,7 @@ The trigger branch can do one thing, at one time, into one place, and can lose a
 | Early trigger | CLTV against N; a tx with lock\_time at or above the current DAA score is not final | Nothing |
 | Funds redirected | Output i must match BENEFICIARY\_SPK and the amount floor | Nothing, if the template is correct |
 | Over-taking by batching or extra outputs | Each input checks only its own output | Extra outputs can spend only bounties and the triggerer's own inputs |
-| Low lock\_time to fire cheaply | A lower lock\_time only lowers the triggerer's own bounty | For oracle types: stale replay, handled by event or expiry semantics |
+| Low lock\_time to fire cheaply | A lower lock\_time only lowers the triggerer's own bounty | For oracle types: stale replay, handled by event semantics |
 | Arithmetic overflow | The spender chooses lock\_time; builders cap it at L\* | Nothing |
 | Fake or garbage records | Hash check; records are only hints | Scanner CPU, paid for in the spammer's mass fees |
 | Front-running | Fee mode leaves nothing to steal | An output paying the submitter can be swapped, so it's never promised |
@@ -366,7 +368,9 @@ The trigger branch can do one thing, at one time, into one place, and can lose a
 | Template bug | Immutable audited IDs; red-team each template before it enters the registry | Systemic: every covenant on that ID at once |
 | Parallel blocks include the same spend | The DAG accepts one; the other copy is ignored | Nothing |
 | DAA score vs wall clock | Release is defined in DAA score | Wall-clock dates are estimates; show them as estimates |
-| Record pruned before N | A beacon republishes it every P, inside the 30-hour window | Nothing while the beacon is funded |
+| Record pruned before N | A beacon republishes it every P, inside the 30-hour window | Records stay discoverable while the beacon is funded and republished inside each window |
+| Nobody republishes the beacon | Same incentive as a trigger: the fee pays the miner, and any scanner or beneficiary can submit it | New scanners can't find the records until someone does; running scanners are unaffected |
+| A sole broadcaster delays triggers | Any other broadcaster, the beneficiary first | The creator pays up to BMAX per covenant |
 | Beacon runs dry | Fund it to past the last N it carries; FEE\_CAP near cost | Scanners that indexed the records still fire them; new scanners can't find them |
 | Beacon payload swapped or trimmed | The republish branch checks the payload's hash | Nothing |
 | Beacon drained by fees | At most FEE\_CAP per spend, at most one spend per P | Nothing beyond the budgeted fees |
