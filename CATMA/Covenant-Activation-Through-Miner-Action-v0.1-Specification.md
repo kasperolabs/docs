@@ -4,13 +4,15 @@ Nov 25, 2026 · @Oz Steinmetz
 
 ## Overview
 
-CATMA is a standard for Kaspa L1 covenants that miners trigger. A creator locks a coin that anyone may spend once its DAA score arrives, but only into the payout fixed at creation. The capped leftover is the transaction fee, so the miner whose block includes the spend is paid for triggering it. No server, no keeper key, no consensus change.
+CATMA is a self-executing layer for Kaspa L1 covenants, added with no consensus change. A covenant that would otherwise wait for someone to trigger it by hand carries a bounty instead. Once its DAA score arrives, anyone may spend it, but only into the payout fixed at creation.
 
-For example, a tenant locks 100 KAS for the landlord at the DAA score of the 1st of the month. From that score any miner can include the payout and keep the bounty as its fee. The tenant doesn't need to be online.
+The capped leftover is the transaction fee, so the miner whose block includes the spend is paid for executing it. Every execution is fee income for miners that comes from Kaspa usage, on top of block rewards. Creators get execution with no server and no keeper key.
+
+For example, a tenant locks 100 KAS for the landlord at the DAA score of the 1st of the month. At that score a miner executes the payment and keeps the bounty as its fee.
 
 Goals:
 
-- Time-triggered release that needs nobody online on the creator's side.
+- Self-execution: covenants that would otherwise need a manual trigger execute once their condition is met, paid for by their own bounty.
 - Correctness from L1: a trigger fires only at or after its DAA score, and only into its committed output.
 - Liveness from incentives: the fee pays the miner who includes the trigger, and anyone can broadcast it at no cost, the beneficiary included.
 - Escalation: a bounty that climbs until it clears at any fee level, up to a cap.
