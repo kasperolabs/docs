@@ -1,6 +1,6 @@
 # Covenant Activation Through Miner Action (CATMA): v0.1 Specification
 
-Nov 25, 2026 · @Oz Steinmetz
+Nov 25, 2026 · Oz Steinmetz, Kaspero Labs
 
 ## Overview
 
