@@ -42,7 +42,7 @@ The trigger spend is not someone else's signed transaction being relayed. The tr
 
 ## Lifecycle
 
-&#91;embedded content: CATMA lifecycle · trigger path, fee loop and owner escape\]
+![CATMA lifecycle: trigger path, fee loop and owner escape](catma-lifecycle.png)
 
 A trigger runs from funding to payout with nobody online on the creator's side. If the bounty doesn't yet cover the fee, broadcasters wait and rebuild with a later lock\_time. T1's owner can step in at any point until a trigger is accepted; T1-N has no escape.
 
